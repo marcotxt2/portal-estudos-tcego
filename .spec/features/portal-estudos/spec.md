@@ -1,5 +1,5 @@
 ---
-status: concluida
+status: auditada
 ---
 
 # Feature: Portal de Estudos Pessoal (TCE-GO)
