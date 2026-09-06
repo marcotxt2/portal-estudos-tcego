@@ -25,7 +25,7 @@ Ao ser invocada (ex: `/spec-auditar [nome da feature]`):
    - `ASM_ABERTA`: Suposição `aberta` no `spec.md`.
 
 3. **Revisão Zero-Assumptions (Code-Review)**:
-   - Avalie o Código (Segurança, Performance, Arquitetura) guiado estritamente pelas diretrizes de Code Review do TurnoLivre (`.antigravityrules`).
+   - Avalie o Código (Segurança, Performance, Arquitetura) guiado estritamente pelas diretrizes do projeto (`AGENTS.md`).
 
 4. **Fechamento e Estado Final**:
    - Se qualquer falha for apontada, liste-as categorizadas como `[CRÍTICO]`, `[MÉDIO]`, etc. A feature NÃO pode ser aprovada.

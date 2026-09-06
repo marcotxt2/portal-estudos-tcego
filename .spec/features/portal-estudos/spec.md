@@ -1,5 +1,5 @@
 ---
-status: pronta
+status: concluida
 ---
 
 # Feature: Portal de Estudos Pessoal (TCE-GO)

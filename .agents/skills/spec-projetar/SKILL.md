@@ -5,7 +5,7 @@ description: Inicia a fase de Projeto e Planejamento Técnico de uma feature. Do
 
 # Fase 2: Projetar (Spec-Driven)
 
-Esta skill representa a fase de planejamento técnico para o projeto TurnoLivre, ocorrendo após a aprovação da especificação. Seu objetivo é não deixar "pontas soltas" e transformar a especificação num roadmap arquitetural (`plano-execucao.md`) e numa lista de tarefas (`tasks.md`).
+Esta skill representa a fase de planejamento técnico para o projeto Portal de Estudos, ocorrendo após a aprovação da especificação. Seu objetivo é não deixar "pontas soltas" e transformar a especificação num roadmap arquitetural (`plano-execucao.md`) e numa lista de tarefas (`tasks.md`).
 
 ## Regras de Execução
 
@@ -18,14 +18,14 @@ Ao ser invocada (ex: `/spec-projetar [nome da feature]`):
 
 2. **Crie o `plano-execucao.md` (A Arquitetura)**:
    Gere ou atualize `.spec/features/<nome-da-feature>/plano-execucao.md` detalhando as decisões técnicas:
-   - Backend (JPA, DTOs, Controllers), Frontend (React) e Modelo de Dados (migrations). A Regra de Ouro "Se um dado sai, ele precisa entrar" se aplica.
+   - Backend (FastAPI, SQLAlchemy, Schemas), Frontend (React/Vite) e Modelo de Dados. A Regra de Ouro "Se um dado sai, ele precisa entrar" se aplica.
 
 3. **Crie o `tasks.md` (A Âncora Mecânica)**:
    Gere o arquivo `.spec/features/<nome-da-feature>/tasks.md`. Para cada tarefa você deve usar exatamente o formato mecânico:
    ```markdown
    #### [pendente] T-xxx - Título curto da tarefa
    - Refs: AC-xxx, AC-yyy
-   - Arquivos: path1.java, path2.tsx (separados por VÍRGULA)
+   - Arquivos: path1.py, path2.tsx (separados por VÍRGULA)
    - Esforço: baixo|medio|alto|xalto|max
    - Descrição técnica atômica.
    ```
