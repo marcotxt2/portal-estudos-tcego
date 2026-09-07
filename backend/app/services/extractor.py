@@ -46,17 +46,37 @@ def extract_content_with_gemini(text_chunk: str) -> ExtractedContent:
         raise ValueError("GEMINI_API_KEY not configured")
     gemini_client = genai.Client(api_key=api_key)
 
+    # Schema de exemplo embutido no prompt.
+    # O SDK google-genai 0.3.0 nao suporta response_schema com modelos Pydantic aninhados
+    # (gera $ref/$defs que o SDK rejeita). Usamos response_mime_type=application/json
+    # e instruimos a IA com um exemplo de schema no proprio prompt.
+    schema_example = (
+        '{\n'
+        '  "theories": [\n'
+        '    {"title": "string", "content_markdown": "string", "topic_tag": "string ou null"}\n'
+        '  ],\n'
+        '  "questions": [\n'
+        '    {\n'
+        '      "statement": "string",\n'
+        '      "options": {"A": "string", "B": "string"},\n'
+        '      "correct_option": "A",\n'
+        '      "related_theory_text": "string ou null",\n'
+        '      "is_ai_generated": false\n'
+        '    }\n'
+        '  ]\n'
+        '}'
+    )
     prompt = (
         "Analise o seguinte trecho de texto extraído de um PDF de estudos. "
         "Separe todo o conteúdo em duas categorias estritas:\n"
         "1. theories: blocos de teoria com título e conteúdo em markdown.\n"
         "2. questions: questões contendo o enunciado, as alternativas (podem ser de Múltipla Escolha A, B, C, D, E ou Certo/Errado C/E), a alternativa correta (A, B, C, D, E, C ou E) e um texto teórico que justifique a resposta correta se houver.\n\n"
         "IMPORTANTE: Se você encontrar uma questão sem o gabarito explícito logo em seguida, VOCÊ MESMO DEVE DETERMINAR a resposta correta usando seus conhecimentos, justificar no 'related_theory_text' e setar o campo 'is_ai_generated' como true.\n\n"
-        f"Retorne EXCLUSIVAMENTE um objeto JSON válido seguindo este formato:\n"
-        f"{ExtractedContent.model_json_schema()}\n\n"
+        f"Retorne EXCLUSIVAMENTE um objeto JSON válido com esta estrutura exata:\n{schema_example}\n\n"
         f"Texto:\n{text_chunk}"
     )
-    
+
+    # @spec:AC-005 @spec:AC-007
     response = gemini_client.models.generate_content(
         model='gemini-2.5-flash',
         contents=prompt,
@@ -64,8 +84,9 @@ def extract_content_with_gemini(text_chunk: str) -> ExtractedContent:
             'response_mime_type': 'application/json',
         },
     )
-    
+
     return ExtractedContent.model_validate_json(response.text)
+
 
 def process_pdf_background(file_path: str, module_name: str, task_id: str):
     db = SessionLocal()
@@ -139,12 +160,21 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
                 import traceback
                 from tenacity import RetryError
                 if isinstance(e, RetryError):
-                    print(f"Erro processando chunk (RetryError real): {e.last_attempt.exception()}")
+                    error_detail = str(e.last_attempt.exception())
+                    print(f"Erro processando chunk (RetryError real): {error_detail}")
                     traceback.print_exception(type(e.last_attempt.exception()), e.last_attempt.exception(), e.last_attempt.exception().__traceback__)
                 else:
+                    error_detail = str(e)
                     print(f"Erro processando chunk: {e}")
                     traceback.print_exc()
                 db.rollback()
+                # @spec:AC-006 @spec:AC-008
+                # Propaga o erro para a task para que o frontend exiba a mensagem correta.
+                if task:
+                    task.status = "error"
+                    task.error_message = f"Falha ao processar chunk: {error_detail}"
+                    db.commit()
+                break  # interrompe o loop ao primeiro erro real apos esgotamento do retry
 
         if task:
             task.status = "completed"
