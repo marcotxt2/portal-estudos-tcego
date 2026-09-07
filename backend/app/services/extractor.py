@@ -67,11 +67,11 @@ def extract_content_with_gemini(text_chunk: str) -> ExtractedContent:
         '}'
     )
     prompt = (
-        "Analise o seguinte trecho de texto extraído de um PDF de estudos. "
+        "Analise o seguinte trecho de texto extraído de um PDF de estudos para concursos. "
         "Separe todo o conteúdo em duas categorias estritas:\n"
-        "1. theories: blocos de teoria com título e conteúdo em markdown.\n"
-        "2. questions: questões contendo o enunciado, as alternativas (podem ser de Múltipla Escolha A, B, C, D, E ou Certo/Errado C/E), a alternativa correta (A, B, C, D, E, C ou E) e um texto teórico que justifique a resposta correta se houver.\n\n"
-        "IMPORTANTE: Se você encontrar uma questão sem o gabarito explícito logo em seguida, VOCÊ MESMO DEVE DETERMINAR a resposta correta usando seus conhecimentos, justificar no 'related_theory_text' e setar o campo 'is_ai_generated' como true.\n\n"
+        "1. theories: blocos de teoria com título e conteúdo em markdown. Perguntas retóricas ou de fixação (ex: 'Qual é a função da camada X?') devem ser agrupadas aqui como texto markdown, NÃO como 'questions'.\n"
+        "2. questions: EXCLUSIVAMENTE questões REAIS de provas/concursos. Elas DEVEM ser de Múltipla Escolha (A, B, C, D, E) ou Certo/Errado (C/E). NÃO extraia perguntas genéricas soltas como questões.\n\n"
+        "IMPORTANTE: Se você encontrar uma questão REAL de concurso sem o gabarito explícito logo em seguida, VOCÊ MESMO DEVE DETERMINAR a resposta correta usando seus conhecimentos, justificar no 'related_theory_text' e setar o campo 'is_ai_generated' como true.\n\n"
         f"Retorne EXCLUSIVAMENTE um objeto JSON válido com esta estrutura exata:\n{schema_example}\n\n"
         f"Texto:\n{text_chunk}"
     )
