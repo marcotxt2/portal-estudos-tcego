@@ -1,5 +1,5 @@
 ---
-status: implementada
+status: auditada
 ---
 
 # Feature: Correcao do Pipeline de Upload e Extracao de PDF

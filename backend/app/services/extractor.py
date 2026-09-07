@@ -127,6 +127,7 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
             task.total_chunks = len(chunks)
             db.commit()
 
+        chunk_error = False
         for chunk in chunks:
             try:
                 extracted = extract_content_with_gemini(chunk)
@@ -174,9 +175,11 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
                     task.status = "error"
                     task.error_message = f"Falha ao processar chunk: {error_detail}"
                     db.commit()
+                chunk_error = True
                 break  # interrompe o loop ao primeiro erro real apos esgotamento do retry
 
-        if task:
+        # Somente marca como completed se nenhum chunk falhou
+        if task and not chunk_error:
             task.status = "completed"
             db.commit()
 
