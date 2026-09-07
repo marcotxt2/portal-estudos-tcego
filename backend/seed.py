@@ -2,16 +2,12 @@ from app.database import SessionLocal, engine, Base
 from app.models import Module
 
 modules_to_seed = [
-    "Engenharia de Software",
-    "Desenvolvimento de Sistemas",
-    "Engenharia de Software Assistida por Inteligência Artificial",
-    "DevOps e Plataforma de Desenvolvimento",
-    "Banco de Dados",
-    "Inteligência Artificial e Ciência de Dados",
+    "Governança de TI e Contratações TIC",
+    "Engenharia de Software e Desenvolvimento",
     "Segurança da Informação",
-    "Sistemas Operacionais, Redes e Computação em Nuvem",
-    "Governança de Tecnologia da Informação",
-    "Legislação Aplicada à Tecnologia da Informação",
+    "Sistemas Operacionais, Redes e Nuvem",
+    "IA, Ciência de Dados e Automação",
+    "Banco de Dados (Relacional, NoSQL, Vetorial)",
     "Língua Inglesa (Leitura Técnica)"
 ]
 
