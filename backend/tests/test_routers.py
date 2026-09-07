@@ -28,7 +28,6 @@ def test_get_daily_session():
     assert response.status_code == 200
     assert response.json() == {"module": None, "theories": [], "questions": []}
 
-# @spec:AC-004
 def test_submit_answer():
     pass
 

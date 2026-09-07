@@ -11,7 +11,7 @@ const TheoryTab = ({ theories }) => {
         <div key={idx} className="bg-card p-6 rounded-xl border border-gray-800 shadow-md">
           <h2 className="text-lg font-bold text-white mb-2">{theory.title || 'Revisão'}</h2>
           <div className="text-gray-300 whitespace-pre-wrap leading-relaxed text-sm">
-            {theory.content}
+            {theory.content_markdown}
           </div>
         </div>
       ))}
