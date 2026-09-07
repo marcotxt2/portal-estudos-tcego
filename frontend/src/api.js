@@ -40,3 +40,9 @@ export const uploadPdf = async (moduleName, file) => {
   if (!res.ok) throw new Error('Failed to upload PDF');
   return res.json();
 };
+
+export const fetchUploadStatus = async (taskId) => {
+  const res = await fetch(`${API_URL}/modules/upload/${taskId}/status`);
+  if (!res.ok) throw new Error('Failed to fetch upload status');
+  return res.json();
+};

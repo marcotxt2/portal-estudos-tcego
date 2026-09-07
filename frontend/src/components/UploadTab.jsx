@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchModules, uploadPdf } from '../api';
+import { fetchModules, uploadPdf, fetchUploadStatus } from '../api';
 
 const UploadTab = () => {
   const [modules, setModules] = useState([]);
@@ -8,6 +8,9 @@ const UploadTab = () => {
   const [file, setFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState('');
+  
+  // Progress tracking
+  const [uploadTask, setUploadTask] = useState(null);
 
   useEffect(() => {
     loadModules();
@@ -28,6 +31,37 @@ const UploadTab = () => {
     }
   };
 
+  useEffect(() => {
+    let intervalId;
+    
+    if (uploadTask && (uploadTask.status === 'pending' || uploadTask.status === 'processing')) {
+      intervalId = setInterval(async () => {
+        try {
+          const status = await fetchUploadStatus(uploadTask.id);
+          setUploadTask(status);
+          
+          if (status.status === 'completed') {
+            setMessage('Processamento da I.A concluído com sucesso!');
+            setIsUploading(false);
+            setFile(null);
+            loadModules();
+            clearInterval(intervalId);
+          } else if (status.status === 'error') {
+            setMessage(`Erro na I.A: ${status.error_message || 'Falha desconhecida'}`);
+            setIsUploading(false);
+            clearInterval(intervalId);
+          }
+        } catch (err) {
+          console.error("Erro ao checar status:", err);
+        }
+      }, 3000); // poll a cada 3 segundos
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [uploadTask]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedModule) {
@@ -41,18 +75,21 @@ const UploadTab = () => {
 
     setIsUploading(true);
     setMessage('');
+    setUploadTask(null);
     
     try {
       const result = await uploadPdf(selectedModule, file);
-      setMessage(result.message);
-      setFile(null);
-      // Recarrega módulos
-
-      loadModules();
+      // Backend devolve result.task_id
+      setUploadTask({
+        id: result.task_id,
+        status: 'pending',
+        processed_chunks: 0,
+        total_chunks: 0
+      });
+      setMessage('Enviado! Iniciando inteligência artificial...');
     } catch (err) {
       setMessage('Erro ao enviar PDF. Tente novamente.');
       console.error(err);
-    } finally {
       setIsUploading(false);
     }
   };
@@ -97,9 +134,51 @@ const UploadTab = () => {
           {isUploading ? 'Enviando...' : 'Fazer Upload e Iniciar Extração'}
         </button>
 
-        {message && (
+        {message && !uploadTask && (
           <div className="mt-4 p-3 rounded bg-gray-800 text-sm text-center border border-gray-700">
             {message}
+          </div>
+        )}
+
+        {uploadTask && (
+          <div className="mt-6 p-4 rounded-lg bg-gray-800/80 border border-gray-700 shadow-sm">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-200">
+                {uploadTask.status === 'pending' && "Iniciando processamento..."}
+                {uploadTask.status === 'processing' && "Inteligência Artificial Analisando..."}
+                {uploadTask.status === 'completed' && "Extração Concluída!"}
+                {uploadTask.status === 'error' && "Falha na Extração"}
+              </span>
+              <span className="text-xs text-gray-400 font-mono">
+                {uploadTask.status === 'processing' && uploadTask.total_chunks > 0 
+                  ? `${uploadTask.processed_chunks} / ${uploadTask.total_chunks}`
+                  : uploadTask.status}
+              </span>
+            </div>
+            
+            <div className="w-full bg-gray-900 rounded-full h-2.5 mb-2 overflow-hidden border border-gray-700">
+              {uploadTask.status === 'pending' && (
+                <div className="bg-primary h-2.5 rounded-full w-full animate-pulse opacity-50"></div>
+              )}
+              {uploadTask.status === 'processing' && (
+                <div 
+                  className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-in-out relative overflow-hidden" 
+                  style={{ width: `${Math.max(5, (uploadTask.processed_chunks / (uploadTask.total_chunks || 1)) * 100)}%` }}
+                >
+                  <div className="absolute top-0 left-0 bottom-0 right-0 bg-white/20 animate-[translateX_2s_infinite]"></div>
+                </div>
+              )}
+              {uploadTask.status === 'completed' && (
+                <div className="bg-green-500 h-2.5 rounded-full w-full"></div>
+              )}
+              {uploadTask.status === 'error' && (
+                <div className="bg-red-500 h-2.5 rounded-full w-full"></div>
+              )}
+            </div>
+            
+            <p className="text-xs text-gray-400 mt-2 text-center">
+              {message}
+            </p>
           </div>
         )}
       </form>

@@ -46,3 +46,14 @@ class UserProgressResponse(UserProgressCreate):
     id: int
     answered_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class UploadTaskResponse(BaseModel):
+    id: str
+    filename: str
+    module_name: str
+    status: str
+    total_chunks: int
+    processed_chunks: int
+    error_message: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)

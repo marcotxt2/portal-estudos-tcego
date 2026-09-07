@@ -7,7 +7,8 @@ from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_excep
 from dotenv import load_dotenv
 
 from sqlalchemy.orm import Session
-from app.models import Module, Theory, Question
+from app.database import SessionLocal
+from app.models import Module, Theory, Question, UploadTask
 
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -66,8 +67,15 @@ def extract_content_with_gemini(text_chunk: str) -> ExtractedContent:
     
     return ExtractedContent.model_validate_json(response.text)
 
-def process_pdf_background(file_path: str, module_name: str, db: Session):
+def process_pdf_background(file_path: str, module_name: str, task_id: str):
+    db = SessionLocal()
     try:
+        # Atualiza task para processing
+        task = db.query(UploadTask).filter(UploadTask.id == task_id).first()
+        if task:
+            task.status = "processing"
+            db.commit()
+
         # Garantir/Criar o módulo
         module = db.query(Module).filter(Module.name == module_name).first()
         if not module:
@@ -85,11 +93,19 @@ def process_pdf_background(file_path: str, module_name: str, db: Session):
 
         if not full_text.strip():
             print("PDF vazio ou ilegível.")
+            if task:
+                task.status = "error"
+                task.error_message = "PDF vazio ou ilegível."
+                db.commit()
             return
 
         chunk_size = 15000
         chunks = [full_text[i:i+chunk_size] for i in range(0, len(full_text), chunk_size)]
         
+        if task:
+            task.total_chunks = len(chunks)
+            db.commit()
+
         for chunk in chunks:
             try:
                 extracted = extract_content_with_gemini(chunk)
@@ -115,6 +131,9 @@ def process_pdf_background(file_path: str, module_name: str, db: Session):
                     db.add(question)
 
                 db.commit()
+                if task:
+                    task.processed_chunks += 1
+                    db.commit()
                 print(f"Inseridos {len(extracted.theories)} teorias e {len(extracted.questions)} questoes.")
             except Exception as e:
                 import traceback
@@ -127,9 +146,18 @@ def process_pdf_background(file_path: str, module_name: str, db: Session):
                     traceback.print_exc()
                 db.rollback()
 
+        if task:
+            task.status = "completed"
+            db.commit()
+
     except Exception as e:
         print(f"Erro no processamento do PDF: {e}")
+        if task:
+            task.status = "error"
+            task.error_message = str(e)
+            db.commit()
     finally:
         # Remove arquivo temporário se necessário, a lógica da rota pode cuidar disso
         if os.path.exists(file_path):
             os.remove(file_path)
+        db.close()

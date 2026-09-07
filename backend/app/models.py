@@ -42,3 +42,15 @@ class UserProgress(Base):
     chosen_option = Column(String(1), nullable=False)
     is_correct = Column(Boolean, nullable=False)
     answered_at = Column(TIMESTAMP, server_default=func.now())
+
+class UploadTask(Base):
+    __tablename__ = "upload_tasks"
+
+    id = Column(String(36), primary_key=True, index=True)
+    filename = Column(String(255), nullable=False)
+    module_name = Column(String(255), nullable=False)
+    status = Column(String(50), nullable=False, default="pending")
+    total_chunks = Column(Integer, nullable=False, default=0)
+    processed_chunks = Column(Integer, nullable=False, default=0)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())
