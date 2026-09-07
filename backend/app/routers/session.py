@@ -51,6 +51,37 @@ def get_daily_session(db: Session = Depends(get_db)):
         "questions": [QuestionResponse.model_validate(q) for q in questions]
     }
 
+@router.get("/module/{module_id}", response_model=Dict[str, Any])
+def get_module_session(module_id: int, db: Session = Depends(get_db)):
+    module = db.query(Module).filter(Module.id == module_id).first()
+    if not module:
+        return {"module": None, "theories": [], "questions": []}
+        
+    theories = db.query(Theory).filter(Theory.module_id == module.id).all()
+    
+    wrong_answers = db.query(UserProgress.question_id).filter(
+        UserProgress.is_correct == False
+    ).subquery()
+    
+    priority_questions = db.query(Question).filter(
+        Question.module_id == module.id,
+        Question.id.in_(wrong_answers)
+    ).limit(10).all()
+    
+    answered_ids = db.query(UserProgress.question_id).subquery()
+    new_questions = db.query(Question).filter(
+        Question.module_id == module.id,
+        Question.id.not_in(answered_ids)
+    ).limit(20).all()
+    
+    questions = priority_questions + new_questions
+    
+    return {
+        "module": ModuleResponse.model_validate(module),
+        "theories": [TheoryResponse.model_validate(t) for t in theories],
+        "questions": [QuestionResponse.model_validate(q) for q in questions]
+    }
+
 @router.get("/review", response_model=Dict[str, Any])
 def get_review_session(db: Session = Depends(get_db)):
     # Retorna o histórico de erros do usuário para revisão

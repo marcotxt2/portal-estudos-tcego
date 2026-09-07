@@ -31,6 +31,7 @@ class Question(Base):
     correct_option = Column(String(1), nullable=False)
     related_theory_id = Column(Integer, ForeignKey("theories.id", ondelete="SET NULL"), nullable=True)
     related_theory_text = Column(Text, nullable=True)
+    is_ai_generated = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at = Column(TIMESTAMP, server_default=func.now())
 
 class UserProgress(Base):

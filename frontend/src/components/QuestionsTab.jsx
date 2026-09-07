@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { submitAnswer } from '../api';
 
 const QuestionsTab = ({ questions }) => {
@@ -53,6 +53,11 @@ const QuestionsTab = ({ questions }) => {
       </div>
 
       <div className="bg-card p-6 rounded-xl border border-gray-800 shadow-lg">
+        {question.is_ai_generated && (
+          <div className="mb-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-900/40 text-purple-300 border border-purple-800/50">
+            🤖 Gabarito Deduzido pela IA
+          </div>
+        )}
         <p className="text-white text-base leading-relaxed mb-6">{question.statement}</p>
         
         <div className="space-y-3">

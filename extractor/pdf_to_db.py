@@ -21,6 +21,7 @@ class QuestionExtracted(BaseModel):
     options: dict[str, str]
     correct_option: str
     related_theory_text: str | None = None
+    is_ai_generated: bool = False
 
 class TheoryExtracted(BaseModel):
     title: str
@@ -42,7 +43,8 @@ def extract_content_with_gemini(text_chunk: str) -> ExtractedContent:
         "Analise o seguinte trecho de texto extraído de um PDF de estudos. "
         "Separe todo o conteúdo em duas categorias estritas:\n"
         "1. theories: blocos de teoria com título e conteúdo em markdown.\n"
-        "2. questions: questões de múltipla escolha contendo o enunciado, as alternativas mapeadas por letras (A, B, C, D, E), a alternativa correta (A, B, C, D ou E) e um texto teórico que justifique a resposta correta se houver.\n\n"
+        "2. questions: questões contendo o enunciado, as alternativas (podem ser de Múltipla Escolha A, B, C, D, E ou Certo/Errado C/E), a alternativa correta (A, B, C, D, E, C ou E) e um texto teórico que justifique a resposta correta se houver.\n\n"
+        "IMPORTANTE: Se você encontrar uma questão sem o gabarito explícito logo em seguida, VOCÊ MESMO DEVE DETERMINAR a resposta correta usando seus conhecimentos, justificar no 'related_theory_text' e setar o campo 'is_ai_generated' como true.\n\n"
         f"Texto:\n{text_chunk}"
     )
     
@@ -153,9 +155,9 @@ def process_directory():
                                     
                                 for q in extracted.questions:
                                     cur.execute('''
-                                        INSERT INTO questions (module_id, statement, options, correct_option, related_theory_text)
-                                        VALUES (%s, %s, %s, %s, %s)
-                                    ''', (module_id, q.statement, json.dumps(q.options), q.correct_option, q.related_theory_text))
+                                        INSERT INTO questions (module_id, statement, options, correct_option, related_theory_text, is_ai_generated)
+                                        VALUES (%s, %s, %s, %s, %s, %s)
+                                    ''', (module_id, q.statement, json.dumps(q.options), q.correct_option, q.related_theory_text, q.is_ai_generated))
                             conn.commit()
                             print(f"Inseridos {len(extracted.theories)} teorias e {len(extracted.questions)} questoes do chunk.")
                         except Exception as e:

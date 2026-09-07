@@ -14,10 +14,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.routers import session, answers
+from app.routers import session, answers, modules
 
 app.include_router(session.router, prefix="/api")
 app.include_router(answers.router, prefix="/api")
+app.include_router(modules.router, prefix="/api")
 
 @app.get("/health")
 def health_check():

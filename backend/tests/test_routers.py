@@ -31,3 +31,9 @@ def test_get_daily_session():
 # @spec:AC-004
 def test_submit_answer():
     pass
+
+# @spec:AC-004
+def test_get_module_session():
+    response = client.get("/api/session/module/999")
+    assert response.status_code == 200
+    assert response.json() == {"module": None, "theories": [], "questions": []}

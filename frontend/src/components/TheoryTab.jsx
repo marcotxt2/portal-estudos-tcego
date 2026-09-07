@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 const TheoryTab = ({ theories }) => {
   if (!theories || theories.length === 0) {
