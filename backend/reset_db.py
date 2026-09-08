@@ -1,6 +1,6 @@
 from app.database import engine, Base
 # Import all models to ensure they are registered with Base.metadata
-from app.models import Module, Theory, Question, UserProgress, UploadTask
+from app.models import Module, Question, UserProgress, UploadTask
 
 def reset_database():
     print("Dropping all tables...")

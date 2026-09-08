@@ -3,19 +3,19 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 
 const QuestionsContext = createContext(null);
 
-const STORAGE_KEY = 'questions_progress';
+const DEFAULT_STORAGE_KEY = 'questions_progress';
 
-function loadProgress() {
+function loadProgress(key) {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch (_) {
     return null;
   }
 }
 
-export function QuestionsProvider({ children }) {
-  const saved = loadProgress();
+export function QuestionsProvider({ children, storageKey = DEFAULT_STORAGE_KEY }) {
+  const saved = loadProgress(storageKey);
 
   const [currentIndex, setCurrentIndex] = useState(saved?.currentIndex ?? 0);
   const [answers, setAnswers] = useState(saved?.answers ?? {});
@@ -23,9 +23,9 @@ export function QuestionsProvider({ children }) {
   // Persiste no sessionStorage sempre que algum estado mudar
   useEffect(() => {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ currentIndex, answers }));
+      sessionStorage.setItem(storageKey, JSON.stringify({ currentIndex, answers }));
     } catch (_) { /* storage indisponivel */ }
-  }, [currentIndex, answers]);
+  }, [currentIndex, answers, storageKey]);
 
   const handleOptionClick = useCallback((key) => {
     setAnswers(prev => ({

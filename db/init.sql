@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS questions (
     correct_option CHAR(1) NOT NULL,
     related_theory_id INT REFERENCES theories(id) ON DELETE SET NULL,
     related_theory_text TEXT,
+    explanation TEXT,
     is_ai_generated BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

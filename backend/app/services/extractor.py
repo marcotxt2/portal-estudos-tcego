@@ -3,6 +3,7 @@ import json
 import pypdf
 import uuid
 import tempfile
+import re
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
@@ -11,7 +12,7 @@ from dotenv import load_dotenv
 
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Module, Theory, Question, UploadTask
+from app.models import Module, Question, UploadTask, Content
 
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -26,17 +27,12 @@ class QuestionExtracted(BaseModel):
     statement: str
     options: dict[str, str]
     correct_option: str
-    related_theory_text: str | None = None
-    explanation: dict[str, str] | None = None
+    explanation: str | None = None
+    materia: str | None = None
+    topico: str | None = None
     is_ai_generated: bool = False
 
-class TheoryExtracted(BaseModel):
-    title: str
-    content_markdown: str
-    topic_tag: str | None = None
-
 class ExtractedContent(BaseModel):
-    theories: list[TheoryExtracted]
     questions: list[QuestionExtracted]
 
 @retry(
@@ -44,7 +40,7 @@ class ExtractedContent(BaseModel):
     stop=stop_after_attempt(5),
     retry=retry_if_exception_type(Exception)
 )
-def extract_content_with_gemini(file_path: str) -> ExtractedContent:
+def extract_content_with_gemini(file_path: str, contents_json: str) -> ExtractedContent:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY not configured")
@@ -52,16 +48,14 @@ def extract_content_with_gemini(file_path: str) -> ExtractedContent:
 
     schema_example = (
         '{\n'
-        '  "theories": [\n'
-        '    {"title": "string", "content_markdown": "string", "topic_tag": "string ou null"}\n'
-        '  ],\n'
         '  "questions": [\n'
         '    {\n'
         '      "statement": "string",\n'
         '      "options": {"A": "string", "B": "string"},\n'
         '      "correct_option": "A",\n'
-        '      "related_theory_text": "string ou null",\n'
-        '      "explanation": {"A": "Por que a letra A esta correta", "B": "Por que a letra B esta errada"},\n'
+        '      "explanation": "Texto corrido justificando a alternativa correta e por que as demais estão erradas",\n'
+        '      "materia": "string (exata da lista permitida, null se nenhuma servir)",\n'
+        '      "topico": "string (exata da lista permitida, null se nenhuma servir)",\n'
         '      "is_ai_generated": false\n'
         '    }\n'
         '  ]\n'
@@ -69,12 +63,14 @@ def extract_content_with_gemini(file_path: str) -> ExtractedContent:
     )
     prompt = (
         "Analise visualmente as páginas do PDF em anexo. "
-        "Separe todo o conteúdo em duas categorias estritas:\n"
-        "1. theories: blocos de teoria com título e conteúdo em markdown. Perguntas retóricas ou de fixação devem ser agrupadas aqui como texto markdown, NÃO como 'questions'.\n"
-        "2. questions: EXCLUSIVAMENTE questões REAIS de provas/concursos. Elas DEVEM ser de Múltipla Escolha (A, B, C, D, E) ou Certo/Errado (C/E).\n\n"
-        "IMPORTANTE: Se você encontrar uma questão REAL de concurso que se repete logo no slide seguinte e a resposta correta estiver indicada apenas por meios visuais (ex: texto de cor diferente, sublinhado, itálico, negrito, caixa ao redor), NÃO a marque como gerada por IA. Apenas extraia a questão, preencha a 'correct_option' de acordo com o destaque visual, e mantenha 'is_ai_generated' como false.\n"
-        "Use 'is_ai_generated' = true APENAS se a resposta NÃO estiver destacada de forma alguma no PDF e você precisar deduzir a resposta com seu próprio conhecimento.\n"
-        "Para cada questão, preencha também o dicionário 'explanation' com uma breve justificativa didática (1 a 2 frases curtas) sobre por que a alternativa correta está certa, e por que as demais (incorretas) estão erradas.\n\n"
+        "Extraia EXCLUSIVAMENTE questões de provas/concursos de Múltipla Escolha (A, B, C, D, E) ou Certo/Errado (C/E).\n\n"
+        "IGNORE completamente blocos de texto que sejam apenas teoria, introdução ou sumário.\n"
+        "IMPORTANTE SOBRE DUPLICIDADE: Se uma mesma questão aparecer repetida em páginas/slides consecutivos (ex: primeiro sem gabarito e logo em seguida com o gabarito destacado visualmente), VOCÊ DEVE EXTRAÍ-LA APENAS UMA ÚNICA VEZ. Mescle as informações: utilize o destaque visual da aparição com gabarito para preencher 'correct_option' e defina 'is_ai_generated' = false. NUNCA gere duas questões idênticas.\n"
+        "Use 'is_ai_generated' = true APENAS se a resposta NÃO estiver destacada de forma alguma em NENHUMA aparição no PDF e você precisar deduzir a resposta com seu próprio conhecimento.\n"
+        "Para questões de Certo/Errado (estilo CESPE/CEBRASPE), utilize ESTRITAMENTE as chaves 'C' e 'E' no objeto 'options', nunca 'A' e 'B'.\n"
+        "Para cada questão, preencha também o campo 'explanation' com um único texto corrido (1 a 3 frases) justificando por que a alternativa correta está certa, e por que as demais estão erradas.\n"
+        f"Classifique CADA questão informando a 'materia' e 'topico' usando ESTRITAMENTE a lista de permitidos a seguir: {contents_json}. "
+        "Copie as strings EXATAMENTE como estão. Se a questão não se encaixar de forma alguma em nenhum, retorne null.\n\n"
         f"Retorne EXCLUSIVAMENTE um objeto JSON válido com esta estrutura exata:\n{schema_example}"
     )
 
@@ -137,6 +133,11 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
             db.add(module)
             db.commit()
             db.refresh(module)
+            
+        # Buscar lista canônica de conteúdos (materia/topico)
+        contents = db.query(Content).all()
+        contents_list = [{"materia": c.materia, "topico": c.topico} for c in contents]
+        contents_json = json.dumps(contents_list, ensure_ascii=False)
         
         # Dividindo o PDF original em partes menores (15 paginas por chunk)
         chunk_size = 15
@@ -174,34 +175,50 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
         chunk_error = False
         for chunk_path in chunks:
             try:
-                extracted = extract_content_with_gemini(chunk_path)
+                extracted = extract_content_with_gemini(chunk_path, contents_json)
                 
-                for t in extracted.theories:
-                    theory = Theory(
-                        module_id=module.id,
-                        title=t.title,
-                        content_markdown=t.content_markdown,
-                        topic_tag=t.topic_tag
-                    )
-                    db.add(theory)
+
 
                 for q in extracted.questions:
-                    question = Question(
-                        module_id=module.id,
-                        statement=q.statement,
-                        options=q.options,
-                        correct_option=q.correct_option,
-                        related_theory_text=q.related_theory_text,
-                        explanation=q.explanation,
-                        is_ai_generated=q.is_ai_generated
-                    )
-                    db.add(question)
+                    # Deduplicar: buscar se já existe questão muito parecida no mesmo módulo
+                    norm_stmt = re.sub(r'\W+', '', q.statement.lower())
+                    existing_qs = db.query(Question).filter(Question.module_id == module.id).all()
+                    
+                    is_duplicate = False
+                    for eq in existing_qs:
+                        if re.sub(r'\W+', '', eq.statement.lower()) == norm_stmt:
+                            is_duplicate = True
+                            # Se a que está no banco foi deduzida pela IA e a nova tem gabarito real, atualiza
+                            if eq.is_ai_generated and not q.is_ai_generated:
+                                eq.options = q.options
+                                eq.correct_option = q.correct_option
+                                eq.explanation = q.explanation
+                                eq.is_ai_generated = False
+                            break
+                            
+                    content_id = None
+                    if q.materia and q.topico:
+                        content = next((c for c in contents if c.materia == q.materia and c.topico == q.topico), None)
+                        if content:
+                            content_id = content.id
+                    
+                    if not is_duplicate:
+                        question = Question(
+                            module_id=module.id,
+                            content_id=content_id,
+                            statement=q.statement,
+                            options=q.options,
+                            correct_option=q.correct_option,
+                            explanation=q.explanation,
+                            is_ai_generated=q.is_ai_generated
+                        )
+                        db.add(question)
 
                 db.commit()
                 if task:
                     task.processed_chunks += 1
                     db.commit()
-                print(f"Inseridos {len(extracted.theories)} teorias e {len(extracted.questions)} questoes.")
+                print(f"Inseridos {len(extracted.questions)} questoes.")
             except Exception as e:
                 import traceback
                 from tenacity import RetryError

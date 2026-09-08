@@ -6,6 +6,7 @@ import * as api from '../src/api';
 
 vi.mock('../src/api', () => ({
   submitAnswer: vi.fn(),
+  fetchContents: vi.fn(() => Promise.resolve([]))
 }));
 
 const mockQuestions = [
@@ -38,8 +39,9 @@ function renderQuestionsTab(questions = mockQuestions) {
 
 describe('QuestionsTab', () => {
   beforeEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
     api.submitAnswer.mockResolvedValue({});
+    api.fetchContents.mockResolvedValue([]);
 
     // Mock sessionStorage para isolar os testes
     const sessionStorageMock = (() => {
@@ -64,6 +66,27 @@ describe('QuestionsTab', () => {
   it('displays empty state when no questions', () => {
     renderQuestionsTab([]);
     expect(screen.getByText(/Voce nao tem questoes pendentes/)).toBeInTheDocument();
+  });
+
+  // @spec:AC-050
+  it('displays congrats state when naoRespondidas filter empties list', async () => {
+    renderQuestionsTab([]); // Render without questions
+    
+    // Open filter
+    fireEvent.click(screen.getByText('Filtrar'));
+    
+    // Click checkbox
+    const checkbox = screen.getByLabelText(/Não mostrar questões já respondidas/i);
+    fireEvent.click(checkbox);
+    
+    // Click Apply
+    const applyBtn = screen.getByText('Aplicar');
+    await act(async () => {
+      fireEvent.click(applyBtn);
+    });
+    
+    // Assert congrats message
+    expect(screen.getByText('Parabéns! Você respondeu todas as questões deste filtro.')).toBeInTheDocument();
   });
 
   it('selects option and confirms answer', async () => {
@@ -162,11 +185,11 @@ describe('QuestionsTab', () => {
     expect(screen.queryByText('Confirmar')).not.toBeInTheDocument();
   });
 
-  // @spec:AC-025
+  // @spec:AC-025 @spec:AC-027
   it('displays explanation block when answered', async () => {
     const questionWithExplanation = {
       ...mockQuestions[0],
-      explanation: { A: 'A is wrong', B: 'B is right', C: 'C is wrong', D: 'D is wrong' }
+      explanation: 'Texto explicando por que A está errada e B está certa'
     };
     renderQuestionsTab([questionWithExplanation]);
     
@@ -177,7 +200,6 @@ describe('QuestionsTab', () => {
     });
     
     // Should see explanation
-    expect(screen.getByText(/A is wrong/)).toBeInTheDocument();
-    expect(screen.getByText(/B is right/)).toBeInTheDocument();
+    expect(screen.getByText(/Texto explicando por que A está errada e B está certa/)).toBeInTheDocument();
   });
 });

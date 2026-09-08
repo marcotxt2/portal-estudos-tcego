@@ -2,6 +2,12 @@ from pydantic import BaseModel, ConfigDict
 from typing import Dict, Optional, Any
 from datetime import datetime
 
+class ContentResponse(BaseModel):
+    id: int
+    materia: str
+    topico: str
+    model_config = ConfigDict(from_attributes=True)
+
 class ModuleBase(BaseModel):
     name: str
     day_of_week: int
@@ -12,25 +18,15 @@ class ModuleResponse(ModuleBase):
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-class TheoryBase(BaseModel):
-    module_id: Optional[int] = None
-    title: str
-    content_markdown: str
-    topic_tag: Optional[str] = None
-
-class TheoryResponse(TheoryBase):
-    id: int
-    created_at: datetime
-    model_config = ConfigDict(from_attributes=True)
 
 class QuestionBase(BaseModel):
     module_id: Optional[int] = None
+    content_id: Optional[int] = None
     statement: str
     options: Dict[str, str]
     correct_option: str
-    related_theory_id: Optional[int] = None
-    related_theory_text: Optional[str] = None
-    explanation: Optional[Dict[str, str]] = None
+
+    explanation: Optional[str] = None
     is_ai_generated: bool = False
 
 class QuestionResponse(QuestionBase):
@@ -56,5 +52,22 @@ class UploadTaskResponse(BaseModel):
     total_chunks: int
     processed_chunks: int
     error_message: Optional[str] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)

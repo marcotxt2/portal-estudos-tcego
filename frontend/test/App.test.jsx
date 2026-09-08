@@ -1,4 +1,4 @@
-// @spec:AC-011 @spec:AC-009 @spec:AC-021
+// @spec:AC-011 @spec:AC-009 @spec:AC-021 @spec:AC-033 @spec:AC-034
 import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import App from '../src/App';
 import * as api from '../src/api';
@@ -6,10 +6,21 @@ import { ThemeProvider } from '../src/context/ThemeContext';
 
 vi.mock('../src/api', () => ({
   fetchModules: vi.fn(),
-  fetchDailySession: vi.fn(),
-  fetchSessionByModule: vi.fn(),
   uploadPdf: vi.fn(),
   fetchUploadStatus: vi.fn(),
+  fetchContents: vi.fn(),
+  fetchReview: vi.fn(),
+  fetchFilteredQuestions: vi.fn(() => Promise.resolve([])),
+}));
+
+vi.mock('../src/context/AuthContext', () => ({
+  useAuth: () => ({
+    user: { username: 'testuser' },
+    loading: false,
+    logout: vi.fn(),
+    login: vi.fn()
+  }),
+  AuthProvider: ({ children }) => children
 }));
 
 // Helper: renderiza App com todos os Providers externos necessarios
@@ -26,7 +37,7 @@ describe('App', () => {
   let intervalCb = null;
 
   beforeEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
 
     const originalSetInterval = global.setInterval;
     vi.stubGlobal('setInterval', (cb, ms, ...args) => {
@@ -51,11 +62,11 @@ describe('App', () => {
     Object.defineProperty(window, 'localStorage', { value: storageMock, writable: true });
     Object.defineProperty(window, 'sessionStorage', { value: { ...storageMock }, writable: true });
 
-    api.fetchDailySession.mockResolvedValue({ theories: [], questions: [] });
-    api.fetchSessionByModule.mockResolvedValue({ theories: [], questions: [] });
     api.fetchModules.mockResolvedValue([
       { id: 1, name: 'Initial Module' }
     ]);
+    api.fetchContents.mockResolvedValue([]);
+    api.fetchReview.mockResolvedValue({ review_items: [] });
   });
 
   afterEach(() => {
@@ -63,23 +74,24 @@ describe('App', () => {
     vi.unstubAllGlobals();
   });
 
-  it('re-fetches modules silently when upload completes without F5', async () => {
-    // @spec:AC-011 @spec:AC-009 @spec:AC-019
+  it('renders Banco de Questoes by default and handles PDF upload flow', async () => {
+    // @spec:AC-033 @spec:AC-034
+    // Renderiza a aplicacao
     renderApp();
 
-    expect(await screen.findByText('Initial Module')).toBeInTheDocument();
-    expect(api.fetchModules).toHaveBeenCalledTimes(1);
+    // Banco de Questoes e a aba padrao (AC-034)
+    const elements = await screen.findAllByText('Banco de Questões');
+    expect(elements.length).toBeGreaterThan(0);
 
+    // Navega para Upload
     const uploadTabBtn = screen.getByText('Upload PDF');
     act(() => {
       uploadTabBtn.click();
     });
 
-    api.fetchModules.mockResolvedValue([
-      { id: 1, name: 'Initial Module' },
-      { id: 2, name: 'New Module Uploaded' }
-    ]);
-
+    // O dropdown de materias do UploadTab deve carregar os modules
+    expect(await screen.findByText('Initial Module')).toBeInTheDocument();
+    
     api.uploadPdf.mockResolvedValue({ task_id: 'task-test' });
     api.fetchUploadStatus.mockResolvedValue({ status: 'completed', processed_chunks: 1, total_chunks: 1 });
 
@@ -103,7 +115,7 @@ describe('App', () => {
       if (intervalCb) await intervalCb();
     });
 
-    // Validar se o novo modulo apareceu na sidebar
-    expect(await screen.findByText('New Module Uploaded')).toBeInTheDocument();
+    // Validar se o status mudou para concluido
+    expect(await screen.findByText('Extracao concluida')).toBeInTheDocument();
   });
 });

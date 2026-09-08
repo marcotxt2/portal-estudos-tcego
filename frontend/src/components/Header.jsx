@@ -1,6 +1,7 @@
-﻿// @spec:AC-012 @spec:AC-017
+// @spec:AC-012 @spec:AC-017
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 // Icone Sol (Lucide)
 const SunIcon = () => (
@@ -49,6 +50,7 @@ function formatElapsed(seconds) {
 
 const Header = () => {
   const { theme, toggleTheme } = useTheme();
+  const { user, logout } = useAuth();
   const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef(null); // @spec: useRef para interval, nao useState
 
@@ -121,6 +123,24 @@ const Header = () => {
           >
             Encerrar
           </button>
+
+          {/* User Info / Logout */}
+          <div className="flex items-center gap-2 border-l pl-4" style={{ borderColor: 'var(--color-border)' }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>
+              {user?.username}
+            </span>
+            <button
+              onClick={logout}
+              className="text-xs cursor-pointer px-2 py-1 rounded border hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors"
+              style={{
+                color: 'var(--color-muted)',
+                borderColor: 'var(--color-border)',
+              }}
+              title="Sair da conta"
+            >
+              Sair
+            </button>
+          </div>
 
           {/* Toggle tema */}
           <button

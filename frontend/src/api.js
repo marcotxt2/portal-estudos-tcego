@@ -1,19 +1,27 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-export const fetchDailySession = async () => {
-  const res = await fetch(`${API_URL}/session/daily`);
-  if (!res.ok) throw new Error('Failed to fetch session');
-  return res.json();
+const fetchWithAuth = async (url, options = {}) => {
+  const token = localStorage.getItem('token');
+  const headers = { ...options.headers };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(url, { ...options, headers });
+  
+  if (response.status === 401) {
+    localStorage.removeItem('token');
+    window.location.reload();
+  }
+  
+  return response;
 };
 
-export const fetchSessionByModule = async (moduleId) => {
-  const res = await fetch(`${API_URL}/session/module/${moduleId}`);
-  if (!res.ok) throw new Error('Failed to fetch module session');
-  return res.json();
-};
+// Sessoes removidas pelo pivot.
 
 export const submitAnswer = async (question_id, chosen_option, is_correct) => {
-  const res = await fetch(`${API_URL}/answers/`, {
+  const res = await fetchWithAuth(`${API_URL}/answers/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question_id, chosen_option, is_correct }),
@@ -35,7 +43,7 @@ export const CANONICAL_MODULES = [
 
 export const fetchModules = async () => {
   try {
-    const res = await fetch(`${API_URL}/modules/`);
+    const res = await fetchWithAuth(`${API_URL}/modules/`);
     if (!res.ok) throw new Error('Failed to fetch modules');
     const data = await res.json();
     // Se o banco ainda nao tem os modulos (banco limpo), retorna a lista canonical
@@ -53,7 +61,7 @@ export const uploadPdf = async (moduleName, file) => {
   formData.append('module_name', moduleName);
   formData.append('file', file);
   
-  const res = await fetch(`${API_URL}/modules/upload/`, {
+  const res = await fetchWithAuth(`${API_URL}/modules/upload/`, {
     method: 'POST',
     body: formData,
   });
@@ -62,7 +70,50 @@ export const uploadPdf = async (moduleName, file) => {
 };
 
 export const fetchUploadStatus = async (taskId) => {
-  const res = await fetch(`${API_URL}/modules/upload/${taskId}/status`);
+  const res = await fetchWithAuth(`${API_URL}/modules/upload/${taskId}/status`);
   if (!res.ok) throw new Error('Failed to fetch upload status');
+  return res.json();
+};
+
+export const fetchContents = async () => {
+  const res = await fetchWithAuth(`${API_URL}/questions/contents`);
+  if (!res.ok) throw new Error('Failed to fetch contents');
+  return res.json();
+};
+
+export const fetchFilteredQuestions = async (params = {}) => {
+  const query = new URLSearchParams();
+  if (params.materia) query.append('materia', params.materia);
+  
+  const contentIds = params.content_ids || params.contentIds;
+  if (contentIds && contentIds.length > 0) {
+    query.append('content_ids', contentIds.join(','));
+  }
+  
+  const q = params.q !== undefined ? params.q : params.searchQuery;
+  if (q) query.append('q', q);
+  
+  const apenasErros = params.apenas_erros !== undefined ? params.apenas_erros : params.apenasErros;
+  if (apenasErros) query.append('apenas_erros', 'true');
+  
+  const naoRespondidas = params.nao_respondidas !== undefined ? params.nao_respondidas : params.naoRespondidas;
+  if (naoRespondidas) query.append('nao_respondidas', 'true');
+  
+  const res = await fetchWithAuth(`${API_URL}/questions/?${query.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch filtered questions');
+  return res.json();
+};
+
+export const fetchReview = async (params = {}) => {
+  const query = new URLSearchParams();
+  if (params.materia) query.append('materia', params.materia);
+  
+  const contentIds = params.content_ids || params.contentIds;
+  if (contentIds && contentIds.length > 0) {
+    query.append('content_ids', contentIds.join(','));
+  }
+  
+  const res = await fetchWithAuth(`${API_URL}/session/review?${query.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch review session');
   return res.json();
 };

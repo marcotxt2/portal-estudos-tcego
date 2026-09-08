@@ -1,6 +1,7 @@
-// @spec:AC-009 @spec:AC-020
+import { useState, useEffect, useMemo } from 'react';
 import { useQuestions } from '../context/QuestionsContext';
-import { submitAnswer } from '../api';
+import { submitAnswer, fetchContents } from '../api';
+import FilterPanel from './FilterPanel';
 
 // Icone SVG Lucide Bot (substitui emoji robot - AC-009)
 const BotIcon = () => (
@@ -27,15 +28,74 @@ const QuestionsTab = ({ questions }) => {
     jumpToIndex
   } = useQuestions();
 
-  if (!questions || questions.length === 0) {
+  const [showFilter, setShowFilter] = useState(false);
+  const [contents, setContents] = useState([]);
+  const [filterParams, setFilterParams] = useState(null);
+
+  useEffect(() => {
+    fetchContents().then(setContents).catch(console.error);
+  }, []);
+
+  const filteredQuestions = useMemo(() => {
+    if (!questions) return [];
+    if (!filterParams) return questions;
+
+    return questions.filter(q => {
+      // Filtro de Texto
+      if (filterParams.searchQuery) {
+        const query = filterParams.searchQuery.toLowerCase();
+        const matchesStatement = q.statement.toLowerCase().includes(query);
+        const matchesOptions = Object.values(q.options).some(opt => opt.toLowerCase().includes(query));
+        if (!matchesStatement && !matchesOptions) return false;
+      }
+      // Filtro de Materia e Topico
+      if (filterParams.materia || (filterParams.contentIds && filterParams.contentIds.length > 0)) {
+        if (!q.content_id) return false;
+        const content = contents.find(c => c.id === q.content_id);
+        if (!content) return false;
+        if (filterParams.materia && content.materia !== filterParams.materia) return false;
+        if (filterParams.contentIds && filterParams.contentIds.length > 0 && !filterParams.contentIds.includes(content.id)) return false;
+      }
+      return true;
+    });
+  }, [questions, filterParams, contents]);
+
+  if (!filteredQuestions || filteredQuestions.length === 0) {
     return (
-      <div className="text-sm text-center mt-10" style={{ color: 'var(--color-muted)' }}>
-        Voce nao tem questoes pendentes para hoje. Excelente trabalho!
+      <div className="max-w-2xl mx-auto mt-4">
+        <div className="flex justify-end mb-4">
+          <button 
+            onClick={() => setShowFilter(!showFilter)}
+            className="text-xs font-semibold px-3 py-1.5 border rounded-lg"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+          >
+            {showFilter ? 'Ocultar Filtros' : 'Filtrar'}
+          </button>
+        </div>
+        {showFilter && <FilterPanel onFilterChange={setFilterParams} contents={contents} />}
+        {filterParams?.naoRespondidas && questions?.length === 0 ? (
+          <div className="text-center mt-10">
+            <h2 className="text-base font-semibold mb-2" style={{ color: 'var(--color-text)' }}>
+              Parabéns! Você respondeu todas as questões deste filtro.
+            </h2>
+            <button
+              onClick={() => setFilterParams({ ...filterParams, naoRespondidas: false })}
+              className="mt-4 px-4 py-2 text-sm rounded-lg font-medium border transition-colors cursor-pointer"
+              style={{ color: 'var(--color-text)', borderColor: 'var(--color-border)', backgroundColor: 'transparent' }}
+            >
+              Limpar filtro
+            </button>
+          </div>
+        ) : (
+          <div className="text-sm text-center mt-10" style={{ color: 'var(--color-muted)' }}>
+            {questions?.length > 0 ? "Nenhuma questão atende aos filtros." : "Voce nao tem questoes pendentes para hoje. Excelente trabalho!"}
+          </div>
+        )}
       </div>
     );
   }
 
-  if (currentIndex >= questions.length) {
+  if (currentIndex >= filteredQuestions.length) {
     return (
       <div className="text-center mt-20">
         <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--color-text)' }}>
@@ -48,7 +108,7 @@ const QuestionsTab = ({ questions }) => {
     );
   }
 
-  const question = questions[currentIndex];
+  const question = filteredQuestions[currentIndex];
 
   const handleConfirm = async () => {
     if (!selectedOption) return;
@@ -85,9 +145,26 @@ const QuestionsTab = ({ questions }) => {
 
   return (
     <div className="max-w-2xl mx-auto mt-4 pb-20">
-      <div className="flex justify-between text-xs mb-4" style={{ color: 'var(--color-muted)' }}>
-        <span className="font-mono">Questao {currentIndex + 1} de {questions.length}</span>
+      <div className="flex justify-between items-center text-xs mb-4" style={{ color: 'var(--color-muted)' }}>
+        <span className="font-mono">Questao {currentIndex + 1} de {filteredQuestions.length}</span>
+        <button 
+          onClick={() => setShowFilter(!showFilter)}
+          className="font-semibold px-3 py-1.5 border rounded-lg transition-colors"
+          style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+        >
+          {showFilter ? 'Ocultar Filtros' : 'Filtrar'}
+        </button>
       </div>
+
+      {showFilter && (
+        <FilterPanel 
+          onFilterChange={(params) => {
+            setFilterParams(params);
+            jumpToIndex(0); // Volta para a primeira questao da lista filtrada
+          }} 
+          contents={contents} 
+        />
+      )}
 
       <div className="rounded-xl border p-6" style={{
         backgroundColor: 'var(--color-surface)',
@@ -127,23 +204,12 @@ const QuestionsTab = ({ questions }) => {
               style={{ color: 'var(--color-muted)' }}>
               Por que esta é a resposta?
             </h3>
-            {Object.entries(question.explanation).map(([key, text]) => {
-              const isCorrectOpt = key === question.correct_option;
-              const isSelectedOpt = key === selectedOption;
-              if (!isCorrectOpt && !isSelectedOpt) return null;
-              
-              const color = isCorrectOpt ? '#22c55e' : '#ef4444';
-              const bgColor = isCorrectOpt ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)';
-              return (
-                <div key={key} className="p-3 rounded-lg border text-sm" style={{
-                  backgroundColor: bgColor,
-                  borderColor: color + '40',
-                }}>
-                  <span className="font-bold mr-2" style={{ color }}>{key})</span>
-                  <span style={{ color: 'var(--color-text)' }}>{text}</span>
-                </div>
-              );
-            })}
+            <div className="p-3 rounded-lg border text-sm" style={{
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderColor: 'var(--color-border)',
+            }}>
+              <span style={{ color: 'var(--color-text)' }}>{question.explanation}</span>
+            </div>
           </div>
         )}
 
@@ -160,7 +226,7 @@ const QuestionsTab = ({ questions }) => {
           </button>
           
           <div className="flex gap-1.5 overflow-x-auto px-2 pb-1 scrollbar-hide">
-            {questions.map((q, i) => {
+            {filteredQuestions.map((q, i) => {
               const ans = answers[i];
               let bgColor = 'var(--color-surface)';
               let borderColor = 'var(--color-border)';

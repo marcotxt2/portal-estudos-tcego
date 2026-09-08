@@ -3,6 +3,13 @@ import { render, screen, act } from '@testing-library/react';
 import { ThemeProvider } from '../src/context/ThemeContext';
 import Header from '../src/components/Header';
 
+vi.mock('../src/context/AuthContext', () => ({
+  useAuth: () => ({
+    user: { username: 'testuser' },
+    logout: vi.fn()
+  })
+}));
+
 describe('Header Component', () => {
   beforeEach(() => {
     localStorage.clear();

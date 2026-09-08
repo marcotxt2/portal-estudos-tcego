@@ -6,6 +6,7 @@
 
 /* @spec:AC-009 - Paleta de tokens light/dark */
 :root {
+  color-scheme: light;
   --color-bg:      #ffffff;
   --color-surface: #f4f4f5;
   --color-border:  #e4e4e7;
@@ -14,7 +15,8 @@
 }
 
 .dark {
-  --color-bg:      #09090b;
+  color-scheme: dark;
+  --color-bg:      #000000;
   --color-surface: #111113;
   --color-border:  #27272a;
   --color-text:    #fafafa;
