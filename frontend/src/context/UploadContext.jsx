@@ -20,12 +20,12 @@ function mapGeminiError(msg) {
   return `Erro inesperado: ${msg.slice(0, 120)}`;
 }
 
-// Persiste apenas as tarefas com taskId (objetos File nao sao serializaveis)
+// Persiste tarefas com taskId no localStorage para sobreviver ao F5
 function savePendingTasks(queue) {
   const persistable = queue
-    .filter(item => item.taskId && item.status !== 'completed' && item.status !== 'error')
-    .map(({ localId, fileName, taskId, status, processed_chunks, total_chunks, errorMessage }) => ({
-      localId, fileName, taskId, status, processed_chunks, total_chunks, errorMessage,
+    .filter(item => item.taskId)
+    .map(({ localId, fileName, taskId, status, processed_chunks, total_chunks, errorMessage, errorMapped }) => ({
+      localId, fileName, taskId, status, processed_chunks, total_chunks, errorMessage, errorMapped,
     }));
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
@@ -42,7 +42,7 @@ function loadPendingTasks() {
 }
 
 export function UploadProvider({ children, onUploadComplete }) {
-  const [uploadQueue, setUploadQueue] = useState([]);
+  const [uploadQueue, setUploadQueue] = useState(loadPendingTasks);
   const intervalsRef = useRef({});
 
   const updateItem = useCallback((localId, patch) => {
@@ -53,9 +53,12 @@ export function UploadProvider({ children, onUploadComplete }) {
   const startPolling = useCallback((localId, taskId) => {
     if (intervalsRef.current[localId]) clearInterval(intervalsRef.current[localId]);
 
+    let failedAttempts = 0;
+
     intervalsRef.current[localId] = setInterval(async () => {
       try {
         const status = await fetchUploadStatus(taskId);
+        failedAttempts = 0;
         updateItem(localId, {
           status: status.status,
           processed_chunks: status.processed_chunks,
@@ -71,28 +74,28 @@ export function UploadProvider({ children, onUploadComplete }) {
           }
         }
       } catch (err) {
-        console.error('Erro ao checar status:', err);
-        clearInterval(intervalsRef.current[localId]);
-        delete intervalsRef.current[localId];
-        updateItem(localId, {
-          status: 'error',
-          errorMessage: 'Tarefa não encontrada ou erro de rede.',
-        });
+        failedAttempts += 1;
+        console.warn(`Polling falhou para ${taskId} (tentativa ${failedAttempts}):`, err);
+        if (failedAttempts >= 4) {
+          clearInterval(intervalsRef.current[localId]);
+          delete intervalsRef.current[localId];
+          updateItem(localId, {
+            status: 'error',
+            errorMessage: 'Tarefa não encontrada ou erro de rede.',
+          });
+        }
       }
     }, 3000);
   }, [onUploadComplete, updateItem]);
 
-  // AC-018: restaura tarefas persistidas no localStorage ao recarregar (F5)
+  // AC-018: restaura e retoma tarefas ativas ao recarregar (F5)
   useEffect(() => {
     const saved = loadPendingTasks();
-    if (saved.length > 0) {
-      setUploadQueue(saved);
-      saved.forEach(item => {
-        if (item.taskId && item.status !== 'completed' && item.status !== 'error') {
-          startPolling(item.localId, item.taskId);
-        }
-      });
-    }
+    saved.forEach(item => {
+      if (item.taskId && item.status !== 'completed' && item.status !== 'error') {
+        startPolling(item.localId, item.taskId);
+      }
+    });
 
     const activeIntervals = intervalsRef.current;
     return () => {

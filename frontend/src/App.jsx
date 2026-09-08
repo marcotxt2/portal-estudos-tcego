@@ -9,9 +9,32 @@ import { QuestionsProvider } from './context/QuestionsContext';
 import { useAuth } from './context/AuthContext';
 import Login from './components/Login';
 
+const STORAGE_KEY_TAB = 'portal_active_tab';
+
+const loadSavedTab = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_TAB);
+    if (saved && ['banco', 'review', 'upload'].includes(saved)) {
+      return saved;
+    }
+    return 'banco';
+  } catch {
+    return 'banco';
+  }
+};
+
 function App() {
   const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState('banco');
+  const [activeTab, setActiveTab] = useState(loadSavedTab);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    try {
+      localStorage.setItem(STORAGE_KEY_TAB, tabId);
+    } catch {
+      // localStorage indisponivel
+    }
+  };
 
   // AC-011: loadModules mantido apenas para o UploadProvider (noop se não usar mais, ou pode manter vazio)
   const loadModules = useCallback(() => {}, []);
@@ -45,7 +68,7 @@ function App() {
                 {tabs.map(tab => (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => handleTabChange(tab.id)}
                     className="px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap cursor-pointer transition-colors"
                     style={{
                       borderColor: activeTab === tab.id ? '#2563eb' : 'transparent',

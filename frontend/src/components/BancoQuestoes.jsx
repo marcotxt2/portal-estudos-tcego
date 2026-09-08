@@ -5,6 +5,8 @@ import QuestionViewer from './QuestionViewer';
 import { fetchContents, fetchFilteredQuestions } from '../api';
 
 const STORAGE_KEY_FILTERS = 'banco_questoes_filters';
+const STORAGE_KEY_INDEX = 'banco_questoes_current_index';
+const STORAGE_KEY_ANSWERS = 'banco_questoes_answers';
 
 const loadSavedFilters = () => {
   try {
@@ -15,24 +17,54 @@ const loadSavedFilters = () => {
   }
 };
 
+const loadSavedIndex = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_INDEX);
+    const val = raw !== null ? Number(raw) : 0;
+    return isNaN(val) || val < 0 ? 0 : val;
+  } catch {
+    return 0;
+  }
+};
+
+const loadSavedAnswers = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_ANSWERS);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
 const BancoQuestoes = () => {
   const [contents, setContents] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(loadSavedIndex);
   const [currentFilters, setCurrentFilters] = useState(loadSavedFilters);
   // { [questionId]: { selectedOption: string|null, showResult: bool } }
-  const [answers, setAnswers] = useState({});
+  const [answers, setAnswers] = useState(loadSavedAnswers);
 
+  // Persiste currentIndex no localStorage sempre que mudar
   useEffect(() => {
-    fetchContents().then(setContents).catch(console.error);
-    const initialFilters = loadSavedFilters();
-    handleFilterChange(initialFilters);
-  }, []);
+    try {
+      localStorage.setItem(STORAGE_KEY_INDEX, String(currentIndex));
+    } catch {
+      // localStorage indisponivel
+    }
+  }, [currentIndex]);
 
-  const handleFilterChange = async (params) => {
+  // Persiste answers no localStorage sempre que mudar
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_ANSWERS, JSON.stringify(answers));
+    } catch {
+      // localStorage indisponivel
+    }
+  }, [answers]);
+
+  const loadQuestions = async (params, targetIndex = 0) => {
     setLoading(true);
-    setCurrentIndex(0); // AC-040: reinicia ponteiro
     setCurrentFilters(params);
     try {
       localStorage.setItem(STORAGE_KEY_FILTERS, JSON.stringify(params));
@@ -42,11 +74,29 @@ const BancoQuestoes = () => {
     try {
       const data = await fetchFilteredQuestions(params);
       setQuestions(data);
+      if (data && data.length > 0) {
+        const clampedIndex = Math.min(Math.max(0, targetIndex), data.length - 1);
+        setCurrentIndex(clampedIndex);
+      } else {
+        setCurrentIndex(0);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchContents().then(setContents).catch(console.error);
+    const initialFilters = loadSavedFilters();
+    const savedIdx = loadSavedIndex();
+    loadQuestions(initialFilters, savedIdx);
+  }, []);
+
+  const handleFilterChange = (params) => {
+    // Ao trocar os filtros manualmente, reinicia o indice para a primeira questao (index 0)
+    loadQuestions(params, 0);
   };
 
   // AC-042: atualiza selecao ou confirma resposta

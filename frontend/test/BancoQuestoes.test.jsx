@@ -33,6 +33,7 @@ const mockQuestions = [
 describe('BancoQuestoes - Navegacao Continua', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     api.fetchFilteredQuestions.mockResolvedValue(mockQuestions);
   });
 
@@ -184,6 +185,16 @@ describe('BancoQuestoes - Navegacao Continua', () => {
       expect(screen.getByText('Enunciado Questao 1')).toBeInTheDocument();
       expect(screen.getByText('Explicacao detalhada Q1')).toBeInTheDocument();
       expect(screen.queryByText('Confirmar')).not.toBeInTheDocument();
+    });
+  });
+
+  it('preserva a questao atual e respostas salvas ao recarregar a pagina (F5)', async () => {
+    localStorage.setItem('banco_questoes_current_index', '1');
+    render(<BancoQuestoes />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Enunciado Questao 2')).toBeInTheDocument();
+      expect(screen.getByText('Questao 2 de 2')).toBeInTheDocument();
     });
   });
 });
