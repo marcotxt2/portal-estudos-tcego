@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 from datetime import datetime
 from typing import List, Dict, Any
 from app.database import get_db
@@ -33,14 +34,14 @@ def get_daily_session(db: Session = Depends(get_db)):
     # Busca as questões erradas pertencentes a este módulo
     priority_questions = db.query(Question).filter(
         Question.module_id == module.id,
-        Question.id.in_(wrong_answers)
+        Question.id.in_(select(wrong_answers))
     ).limit(10).all()
     
     # Completa com outras questões que não foram respondidas
     answered_ids = db.query(UserProgress.question_id).subquery()
     new_questions = db.query(Question).filter(
         Question.module_id == module.id,
-        Question.id.not_in(answered_ids)
+        Question.id.not_in(select(answered_ids))
     ).limit(20).all()
     
     questions = priority_questions + new_questions
@@ -65,13 +66,13 @@ def get_module_session(module_id: int, db: Session = Depends(get_db)):
     
     priority_questions = db.query(Question).filter(
         Question.module_id == module.id,
-        Question.id.in_(wrong_answers)
+        Question.id.in_(select(wrong_answers))
     ).limit(10).all()
     
     answered_ids = db.query(UserProgress.question_id).subquery()
     new_questions = db.query(Question).filter(
         Question.module_id == module.id,
-        Question.id.not_in(answered_ids)
+        Question.id.not_in(select(answered_ids))
     ).limit(20).all()
     
     questions = priority_questions + new_questions
