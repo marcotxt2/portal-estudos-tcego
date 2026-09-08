@@ -72,6 +72,12 @@ export function UploadProvider({ children, onUploadComplete }) {
         }
       } catch (err) {
         console.error('Erro ao checar status:', err);
+        clearInterval(intervalsRef.current[localId]);
+        delete intervalsRef.current[localId];
+        updateItem(localId, {
+          status: 'error',
+          errorMessage: 'Tarefa não encontrada ou erro de rede.',
+        });
       }
     }, 3000);
   }, [onUploadComplete, updateItem]);
