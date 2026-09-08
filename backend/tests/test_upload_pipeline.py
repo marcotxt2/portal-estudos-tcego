@@ -27,6 +27,8 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 Base.metadata.create_all(bind=engine)
 
 
+import pytest
+
 def override_get_db():
     try:
         db = TestingSessionLocal()
@@ -34,8 +36,12 @@ def override_get_db():
     finally:
         db.close()
 
+@pytest.fixture(autouse=True)
+def setup_deps():
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    app.dependency_overrides.clear()
 
-app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 

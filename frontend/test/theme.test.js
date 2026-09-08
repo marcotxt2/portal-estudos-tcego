@@ -11,7 +11,7 @@ test('Tema e UI deve conter True Black e cores específicas no Tailwind config',
   const tailwindConfigPath = path.resolve(__dirname, '../tailwind.config.js');
   const configContent = fs.readFileSync(tailwindConfigPath, 'utf-8');
   
-  // Verifica se o background (000000) e card (121212) foram configurados conforme AC-005
-  expect(configContent).toContain("#000000");
-  expect(configContent).toContain("#121212");
+  // Atualizado para AC-009: usa variaveis em vez de hardcoded colors
+  expect(configContent).toContain("var(--color-bg)");
+  expect(configContent).toContain("var(--color-surface)");
 });

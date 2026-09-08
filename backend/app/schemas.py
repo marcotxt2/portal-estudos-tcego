@@ -30,6 +30,7 @@ class QuestionBase(BaseModel):
     correct_option: str
     related_theory_id: Optional[int] = None
     related_theory_text: Optional[str] = None
+    explanation: Optional[Dict[str, str]] = None
     is_ai_generated: bool = False
 
 class QuestionResponse(QuestionBase):

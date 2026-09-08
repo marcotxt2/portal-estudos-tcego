@@ -1,9 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* @spec:AC-009 - Paleta de tokens light/dark */
+:root {
+  --color-bg:      #ffffff;
+  --color-surface: #f4f4f5;
+  --color-border:  #e4e4e7;
+  --color-text:    #09090b;
+  --color-muted:   #71717a;
+}
+
+.dark {
+  --color-bg:      #09090b;
+  --color-surface: #111113;
+  --color-border:  #27272a;
+  --color-text:    #fafafa;
+  --color-muted:   #71717a;
+}
+
 @layer base {
   body {
-    @apply bg-background text-gray-200 antialiased;
+    @apply bg-background antialiased;
+    color: var(--color-text);
+    font-family: 'Inter', sans-serif;
+  }
+
+  * {
+    @apply transition-colors duration-150 ease-in-out;
+  }
+
+  /* Respeitar preferencia de reducao de movimento */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
   }
 }

@@ -1,5 +1,5 @@
 ---
-status: em-implementacao
+status: auditada
 ---
 
 # Feature: Melhoria na Extração e Exibição de Conteúdo

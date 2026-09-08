@@ -21,3 +21,13 @@ def test_question_ai_generated_field():
         is_ai_generated=True
     )
     assert q.is_ai_generated is True
+
+# @spec:AC-024
+def test_question_explanation_field():
+    q = QuestionBase(
+        statement="Teste",
+        options={"A": "1", "B": "2"},
+        correct_option="A",
+        explanation={"A": "Certo", "B": "Errado"}
+    )
+    assert q.explanation["A"] == "Certo"

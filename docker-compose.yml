@@ -28,6 +28,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-portal_user}:${POSTGRES_PASSWORD:-portal_pass}@db:5432/${POSTGRES_DB:-portal_db}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-lite-latest}
     ports:
       - "8000:8000"
     depends_on:

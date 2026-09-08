@@ -1,7 +1,10 @@
 import os
 import json
-import pdfplumber
+import pypdf
+import uuid
+import tempfile
 from google import genai
+from google.genai import types
 from pydantic import BaseModel
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 from dotenv import load_dotenv
@@ -24,6 +27,7 @@ class QuestionExtracted(BaseModel):
     options: dict[str, str]
     correct_option: str
     related_theory_text: str | None = None
+    explanation: dict[str, str] | None = None
     is_ai_generated: bool = False
 
 class TheoryExtracted(BaseModel):
@@ -40,16 +44,12 @@ class ExtractedContent(BaseModel):
     stop=stop_after_attempt(5),
     retry=retry_if_exception_type(Exception)
 )
-def extract_content_with_gemini(text_chunk: str) -> ExtractedContent:
+def extract_content_with_gemini(file_path: str) -> ExtractedContent:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY not configured")
     gemini_client = genai.Client(api_key=api_key)
 
-    # Schema de exemplo embutido no prompt.
-    # O SDK google-genai 0.3.0 nao suporta response_schema com modelos Pydantic aninhados
-    # (gera $ref/$defs que o SDK rejeita). Usamos response_mime_type=application/json
-    # e instruimos a IA com um exemplo de schema no proprio prompt.
     schema_example = (
         '{\n'
         '  "theories": [\n'
@@ -61,31 +61,64 @@ def extract_content_with_gemini(text_chunk: str) -> ExtractedContent:
         '      "options": {"A": "string", "B": "string"},\n'
         '      "correct_option": "A",\n'
         '      "related_theory_text": "string ou null",\n'
+        '      "explanation": {"A": "Por que a letra A esta correta", "B": "Por que a letra B esta errada"},\n'
         '      "is_ai_generated": false\n'
         '    }\n'
         '  ]\n'
         '}'
     )
     prompt = (
-        "Analise o seguinte trecho de texto extraído de um PDF de estudos para concursos. "
+        "Analise visualmente as páginas do PDF em anexo. "
         "Separe todo o conteúdo em duas categorias estritas:\n"
-        "1. theories: blocos de teoria com título e conteúdo em markdown. Perguntas retóricas ou de fixação (ex: 'Qual é a função da camada X?') devem ser agrupadas aqui como texto markdown, NÃO como 'questions'.\n"
-        "2. questions: EXCLUSIVAMENTE questões REAIS de provas/concursos. Elas DEVEM ser de Múltipla Escolha (A, B, C, D, E) ou Certo/Errado (C/E). NÃO extraia perguntas genéricas soltas como questões.\n\n"
-        "IMPORTANTE: Se você encontrar uma questão REAL de concurso sem o gabarito explícito logo em seguida, VOCÊ MESMO DEVE DETERMINAR a resposta correta usando seus conhecimentos, justificar no 'related_theory_text' e setar o campo 'is_ai_generated' como true.\n\n"
-        f"Retorne EXCLUSIVAMENTE um objeto JSON válido com esta estrutura exata:\n{schema_example}\n\n"
-        f"Texto:\n{text_chunk}"
+        "1. theories: blocos de teoria com título e conteúdo em markdown. Perguntas retóricas ou de fixação devem ser agrupadas aqui como texto markdown, NÃO como 'questions'.\n"
+        "2. questions: EXCLUSIVAMENTE questões REAIS de provas/concursos. Elas DEVEM ser de Múltipla Escolha (A, B, C, D, E) ou Certo/Errado (C/E).\n\n"
+        "IMPORTANTE: Se você encontrar uma questão REAL de concurso que se repete logo no slide seguinte e a resposta correta estiver indicada apenas por meios visuais (ex: texto de cor diferente, sublinhado, itálico, negrito, caixa ao redor), NÃO a marque como gerada por IA. Apenas extraia a questão, preencha a 'correct_option' de acordo com o destaque visual, e mantenha 'is_ai_generated' como false.\n"
+        "Use 'is_ai_generated' = true APENAS se a resposta NÃO estiver destacada de forma alguma no PDF e você precisar deduzir a resposta com seu próprio conhecimento.\n"
+        "Para cada questão, preencha também o dicionário 'explanation' com uma breve justificativa didática (1 a 2 frases curtas) sobre por que a alternativa correta está certa, e por que as demais (incorretas) estão erradas.\n\n"
+        f"Retorne EXCLUSIVAMENTE um objeto JSON válido com esta estrutura exata:\n{schema_example}"
     )
 
-    # @spec:AC-005 @spec:AC-007
-    response = gemini_client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config={
-            'response_mime_type': 'application/json',
-        },
-    )
+    uploaded_file = None
+    try:
+        # Upload para a File API do Gemini
+        uploaded_file = gemini_client.files.upload(path=file_path)
+        part = types.Part.from_uri(file_uri=uploaded_file.uri, mime_type='application/pdf')
+        
+        models_to_try = [
+            os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest"),
+            "gemini-flash-lite-latest",
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-flash",
+        ]
+        # Remove duplicados preservando a ordem
+        models_to_try = list(dict.fromkeys(models_to_try))
 
-    return ExtractedContent.model_validate_json(response.text)
+        last_error = None
+        for model_name in models_to_try:
+            try:
+                response = gemini_client.models.generate_content(
+                    model=model_name,
+                    contents=[part, prompt],
+                    config={
+                        'response_mime_type': 'application/json',
+                    },
+                )
+                return ExtractedContent.model_validate_json(response.text)
+            except Exception as err:
+                last_error = err
+                err_str = str(err)
+                if any(code in err_str for code in ["429", "503", "404", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
+                    print(f"Modelo {model_name} indisponivel ({err_str[:80]}), tentando fallback...")
+                    continue
+                raise err
+        if last_error:
+            raise last_error
+    finally:
+        if uploaded_file:
+            try:
+                gemini_client.files.delete(name=uploaded_file.name)
+            except Exception as e:
+                print(f"Failed to delete uploaded file: {e}")
 
 
 def process_pdf_background(file_path: str, module_name: str, task_id: str):
@@ -105,32 +138,43 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
             db.commit()
             db.refresh(module)
         
-        full_text = ""
-        with pdfplumber.open(file_path) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text()
-                if text:
-                    full_text += text + "\n"
+        # Dividindo o PDF original em partes menores (15 paginas por chunk)
+        chunk_size = 15
+        chunks = []
+        try:
+            reader = pypdf.PdfReader(file_path)
+            total_pages = len(reader.pages)
+            if total_pages == 0:
+                raise ValueError("PDF sem paginas.")
 
-        if not full_text.strip():
-            print("PDF vazio ou ilegível.")
+            temp_dir = tempfile.gettempdir()
+            for i in range(0, total_pages, chunk_size):
+                writer = pypdf.PdfWriter()
+                end_page = min(i + chunk_size, total_pages)
+                for j in range(i, end_page):
+                    writer.add_page(reader.pages[j])
+                
+                chunk_path = os.path.join(temp_dir, f"{uuid.uuid4()}_chunk_{i}.pdf")
+                with open(chunk_path, "wb") as f:
+                    writer.write(f)
+                chunks.append(chunk_path)
+                
+        except Exception as e:
+            print(f"Erro ao ler ou dividir o PDF: {e}")
             if task:
                 task.status = "error"
-                task.error_message = "PDF vazio ou ilegível."
+                task.error_message = f"PDF vazio, corrompido ou inacessível: {e}"
                 db.commit()
             return
 
-        chunk_size = 15000
-        chunks = [full_text[i:i+chunk_size] for i in range(0, len(full_text), chunk_size)]
-        
         if task:
             task.total_chunks = len(chunks)
             db.commit()
 
         chunk_error = False
-        for chunk in chunks:
+        for chunk_path in chunks:
             try:
-                extracted = extract_content_with_gemini(chunk)
+                extracted = extract_content_with_gemini(chunk_path)
                 
                 for t in extracted.theories:
                     theory = Theory(
@@ -148,6 +192,7 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
                         options=q.options,
                         correct_option=q.correct_option,
                         related_theory_text=q.related_theory_text,
+                        explanation=q.explanation,
                         is_ai_generated=q.is_ai_generated
                     )
                     db.add(question)
@@ -177,6 +222,12 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
                     db.commit()
                 chunk_error = True
                 break  # interrompe o loop ao primeiro erro real apos esgotamento do retry
+            finally:
+                if os.path.exists(chunk_path):
+                    try:
+                        os.remove(chunk_path)
+                    except:
+                        pass
 
         # Somente marca como completed se nenhum chunk falhou
         if task and not chunk_error:

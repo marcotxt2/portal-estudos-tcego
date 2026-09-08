@@ -6,7 +6,7 @@ class Module(Base):
     __tablename__ = "modules"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=False, unique=True)
     day_of_week = Column(Integer, nullable=False)
     description = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
@@ -31,6 +31,7 @@ class Question(Base):
     correct_option = Column(String(10), nullable=False)
     related_theory_id = Column(Integer, ForeignKey("theories.id", ondelete="SET NULL"), nullable=True)
     related_theory_text = Column(Text, nullable=True)
+    explanation = Column(JSON, nullable=True)
     is_ai_generated = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at = Column(TIMESTAMP, server_default=func.now())
 

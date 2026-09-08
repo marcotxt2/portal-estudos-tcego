@@ -22,11 +22,31 @@ export const submitAnswer = async (question_id, chosen_option, is_correct) => {
   return res.json();
 };
 
+// Disciplinas canonicas do TCE-GO - exibidas mesmo sem dados no banco
+export const CANONICAL_MODULES = [
+  { id: -1, name: 'Banco de Dados (Relacional, NoSQL, Vetorial)' },
+  { id: -2, name: 'Engenharia de Software e Desenvolvimento' },
+  { id: -3, name: 'Governança de TI e Contratações TIC' },
+  { id: -4, name: 'IA, Ciência de Dados e Automação' },
+  { id: -5, name: 'Língua Inglesa (Leitura Técnica)' },
+  { id: -6, name: 'Segurança da Informação' },
+  { id: -7, name: 'Sistemas Operacionais, Redes e Nuvem' },
+];
+
 export const fetchModules = async () => {
-  const res = await fetch(`${API_URL}/modules/`);
-  if (!res.ok) throw new Error('Failed to fetch modules');
-  return res.json();
+  try {
+    const res = await fetch(`${API_URL}/modules/`);
+    if (!res.ok) throw new Error('Failed to fetch modules');
+    const data = await res.json();
+    // Se o banco ainda nao tem os modulos (banco limpo), retorna a lista canonical
+    if (!data || data.length === 0) return CANONICAL_MODULES;
+    return data;
+  } catch {
+    // Fallback offline: exibe disciplinas canonicas sem bloquear a UI
+    return CANONICAL_MODULES;
+  }
 };
+
 
 export const uploadPdf = async (moduleName, file) => {
   const formData = new FormData();
