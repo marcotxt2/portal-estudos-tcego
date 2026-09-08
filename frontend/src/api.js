@@ -99,6 +99,8 @@ export const fetchFilteredQuestions = async (params = {}) => {
   const naoRespondidas = params.nao_respondidas !== undefined ? params.nao_respondidas : params.naoRespondidas;
   if (naoRespondidas) query.append('nao_respondidas', 'true');
   
+  if (params.limit) query.append('limit', params.limit);
+  
   const res = await fetchWithAuth(`${API_URL}/questions/?${query.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch filtered questions');
   return res.json();

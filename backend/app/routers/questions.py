@@ -22,6 +22,7 @@ def get_filtered_questions(
     q: Optional[str] = None,
     apenas_erros: bool = False,
     nao_respondidas: bool = False,
+    limit: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -56,4 +57,7 @@ def get_filtered_questions(
         ).subquery()
         query = query.filter(Question.id.notin_(select(answered)))
         
-    return query.limit(100).all()
+    if limit is not None and limit > 0:
+        query = query.limit(limit)
+
+    return query.all()
