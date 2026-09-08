@@ -4,6 +4,8 @@ import pypdf
 import uuid
 import tempfile
 import re
+import threading
+import time
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
@@ -22,6 +24,9 @@ if API_KEY:
 else:
     client = None
 
+# Semaforo global para limitar chamadas concorrentes ao Gemini evitando esgotar o limite de RPM
+gemini_semaphore = threading.Semaphore(1)
+
 # Schemas de Retorno para o Gemini
 class QuestionExtracted(BaseModel):
     statement: str
@@ -35,13 +40,41 @@ class QuestionExtracted(BaseModel):
 class ExtractedContent(BaseModel):
     questions: list[QuestionExtracted]
 
+def parse_extracted_json(raw_text: str) -> ExtractedContent:
+    """Extrai e valida ExtractedContent lidando com retornos em formato de lista ou objeto."""
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```[a-zA-Z]*\n?", "", cleaned)
+        cleaned = re.sub(r"\n?```$", "", cleaned)
+    try:
+        data = json.loads(cleaned)
+    except Exception:
+        match = re.search(r'(\[.*\]|\{.*\})', cleaned, re.DOTALL)
+        if match:
+            data = json.loads(match.group(1))
+        else:
+            raise
+
+    if isinstance(data, list):
+        data = {"questions": data}
+    elif isinstance(data, dict):
+        if "questions" not in data:
+            for val in data.values():
+                if isinstance(val, list):
+                    data = {"questions": val}
+                    break
+            else:
+                data = {"questions": []}
+    return ExtractedContent.model_validate(data)
+
 @retry(
-    wait=wait_exponential(multiplier=2, min=4, max=60),
+    wait=wait_exponential(multiplier=3, min=10, max=65),
     stop=stop_after_attempt(5),
     retry=retry_if_exception_type(Exception)
 )
 def extract_content_with_gemini(file_path: str, contents_json: str) -> ExtractedContent:
-    api_key = os.getenv("GEMINI_API_KEY")
+    with gemini_semaphore:
+        api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY not configured")
     gemini_client = genai.Client(api_key=api_key)
@@ -99,12 +132,15 @@ def extract_content_with_gemini(file_path: str, contents_json: str) -> Extracted
                         'response_mime_type': 'application/json',
                     },
                 )
-                return ExtractedContent.model_validate_json(response.text)
+                result = parse_extracted_json(response.text)
+                time.sleep(3)  # Intervalo de seguranca para respeitar o limite de RPM
+                return result
             except Exception as err:
                 last_error = err
                 err_str = str(err)
                 if any(code in err_str for code in ["429", "503", "404", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
-                    print(f"Modelo {model_name} indisponivel ({err_str[:80]}), tentando fallback...")
+                    print(f"Modelo {model_name} rate-limited ou indisponivel ({err_str[:80]}), aguardando antes do fallback...")
+                    time.sleep(5)
                     continue
                 raise err
         if last_error:

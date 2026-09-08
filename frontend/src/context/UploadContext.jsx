@@ -126,20 +126,18 @@ export function UploadProvider({ children, onUploadComplete }) {
 
     setUploadQueue(q => [...q, ...entries]);
 
-    await Promise.allSettled(
-      entries.map(async (entry) => {
-        try {
-          const result = await uploadPdf(selectedModule, entry.file);
-          updateItem(entry.localId, { taskId: result.task_id, status: 'pending' });
-          startPolling(entry.localId, result.task_id);
-        } catch (err) {
-          updateItem(entry.localId, {
-            status: 'error',
-            errorMessage: err?.message || 'Erro ao enviar arquivo.',
-          });
-        }
-      })
-    );
+    for (const entry of entries) {
+      try {
+        const result = await uploadPdf(selectedModule, entry.file);
+        updateItem(entry.localId, { taskId: result.task_id, status: 'pending' });
+        startPolling(entry.localId, result.task_id);
+      } catch (err) {
+        updateItem(entry.localId, {
+          status: 'error',
+          errorMessage: err?.message || 'Erro ao enviar arquivo.',
+        });
+      }
+    }
   }, [startPolling, updateItem]);
 
   const handleDismiss = useCallback((localId) => {

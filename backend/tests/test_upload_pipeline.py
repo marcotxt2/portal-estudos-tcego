@@ -171,3 +171,27 @@ def test_status_endpoint_expoe_error_message():
     assert body["status"] == "error"
     assert body["error_message"] is not None
     assert "Falha ao processar chunk" in body["error_message"]
+
+
+def test_parse_extracted_json_formats():
+    """Valida que parse_extracted_json aceita tanto formato objeto quanto lista crua ou blocos markdown."""
+    from app.services.extractor import parse_extracted_json
+    
+    # 1. Formato padrão de objeto
+    json_obj = '{"questions": [{"statement": "Q1", "options": {"A": "1"}, "correct_option": "A"}]}'
+    res1 = parse_extracted_json(json_obj)
+    assert len(res1.questions) == 1
+    assert res1.questions[0].statement == "Q1"
+
+    # 2. Formato de lista crua devolvida pelo Gemini
+    json_list = '[{"statement": "Q2", "options": {"A": "2"}, "correct_option": "A"}]'
+    res2 = parse_extracted_json(json_list)
+    assert len(res2.questions) == 1
+    assert res2.questions[0].statement == "Q2"
+
+    # 3. Formato com bloco markdown
+    json_md = '```json\n[{"statement": "Q3", "options": {"B": "3"}, "correct_option": "B"}]\n```'
+    res3 = parse_extracted_json(json_md)
+    assert len(res3.questions) == 1
+    assert res3.questions[0].statement == "Q3"
+
