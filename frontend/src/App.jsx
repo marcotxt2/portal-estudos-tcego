@@ -1,5 +1,5 @@
 // @spec:AC-011 @spec:AC-009 @spec:AC-018 @spec:AC-019 @spec:AC-020
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import Header from './components/Header';
 import ReviewTab from './components/ReviewTab';
 import UploadTab from './components/UploadTab';

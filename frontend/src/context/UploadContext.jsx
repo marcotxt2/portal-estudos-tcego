@@ -94,8 +94,9 @@ export function UploadProvider({ children, onUploadComplete }) {
       });
     }
 
+    const activeIntervals = intervalsRef.current;
     return () => {
-      Object.values(intervalsRef.current).forEach(clearInterval);
+      Object.values(activeIntervals).forEach(clearInterval);
     };
   }, [startPolling]);
 

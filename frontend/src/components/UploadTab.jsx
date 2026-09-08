@@ -32,7 +32,7 @@ const XIcon = () => (
 
 // --- Barra de progresso por arquivo (AC-010) ---
 function UploadCard({ item, onDismiss }) {
-  const { fileName, status, processed_chunks, total_chunks, errorMessage } = item;
+  const { fileName, status, processed_chunks, total_chunks } = item;
 
   const percent = status === 'completed'
     ? 100

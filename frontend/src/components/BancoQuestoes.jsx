@@ -1,25 +1,44 @@
 // @spec:AC-036, AC-037, AC-038, AC-039, AC-040, AC-041, AC-042
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import FilterPanel from './FilterPanel';
 import QuestionViewer from './QuestionViewer';
 import { fetchContents, fetchFilteredQuestions } from '../api';
+
+const STORAGE_KEY_FILTERS = 'banco_questoes_filters';
+
+const loadSavedFilters = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_FILTERS);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
 
 const BancoQuestoes = () => {
   const [contents, setContents] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentFilters, setCurrentFilters] = useState(loadSavedFilters);
   // { [questionId]: { selectedOption: string|null, showResult: bool } }
   const [answers, setAnswers] = useState({});
 
   useEffect(() => {
     fetchContents().then(setContents).catch(console.error);
-    handleFilterChange({});
+    const initialFilters = loadSavedFilters();
+    handleFilterChange(initialFilters);
   }, []);
 
   const handleFilterChange = async (params) => {
     setLoading(true);
     setCurrentIndex(0); // AC-040: reinicia ponteiro
+    setCurrentFilters(params);
+    try {
+      localStorage.setItem(STORAGE_KEY_FILTERS, JSON.stringify(params));
+    } catch {
+      // localStorage indisponivel
+    }
     try {
       const data = await fetchFilteredQuestions(params);
       setQuestions(data);
@@ -53,7 +72,15 @@ const BancoQuestoes = () => {
         </p>
       </div>
 
-      <FilterPanel onFilterChange={handleFilterChange} contents={contents} />
+      <FilterPanel 
+        onFilterChange={handleFilterChange} 
+        contents={contents}
+        materia={currentFilters.materia || ''}
+        contentIds={currentFilters.contentIds || currentFilters.content_ids || []}
+        searchQuery={currentFilters.searchQuery || currentFilters.q || ''}
+        apenasErros={Boolean(currentFilters.apenasErros || currentFilters.apenas_erros)}
+        naoRespondidas={Boolean(currentFilters.naoRespondidas || currentFilters.nao_respondidas)}
+      />
 
       {loading && (
         <div className="text-center text-sm py-8" style={{ color: 'var(--color-muted)' }}>

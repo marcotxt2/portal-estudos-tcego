@@ -13,7 +13,6 @@ const ReviewTab = () => {
   const [reviews, setReviews] = useState([]);
   const [showFilter, setShowFilter] = useState(false);
   const [contents, setContents] = useState([]);
-  const [filterParams, setFilterParams] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedExplanations, setExpandedExplanations] = useState({});
 
@@ -40,7 +39,6 @@ const ReviewTab = () => {
   };
 
   const handleFilterChange = (params) => {
-    setFilterParams(params);
     loadReviews(params);
   };
 
