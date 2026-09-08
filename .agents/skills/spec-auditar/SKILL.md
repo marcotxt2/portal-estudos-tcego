@@ -30,4 +30,5 @@ Ao ser invocada (ex: `/spec-auditar [nome da feature]`):
 4. **Fechamento e Estado Final**:
    - Se qualquer falha for apontada, liste-as categorizadas como `[CRÍTICO]`, `[MÉDIO]`, etc. A feature NÃO pode ser aprovada.
    - Se tudo for aprovado, rode os testes (Exit 0 real), modifique o cabeçalho YAML de `spec.md` para **`status: auditada`**.
+   - **Deploy Automático**: Estando aprovado, acione imediatamente a skill `docker-update` (ou rode diretamente `docker compose up --build -d` e afins) para reconstruir as imagens e atualizar os containers em background com a nova feature, garantindo que o ambiente local esteja atualizado.
    - Linguagem fria, rigorosa e estritamente sem emojis.
