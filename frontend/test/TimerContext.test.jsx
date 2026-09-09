@@ -163,4 +163,44 @@ describe('TimerContext', () => {
     expect(result.current.pomodorosCompletedToday).toBe(0);
     expect(result.current.pomodoroStage).toBe('focus');
   });
+
+  it('deve continuar contando com precisao absoluta quando a aba estiver em segundo plano (wall-clock delta)', () => {
+    const wrapper = ({ children }) => <TimerProvider>{children}</TimerProvider>;
+    const { result } = renderHook(() => useTimer(), { wrapper });
+
+    act(() => {
+      result.current.startPomodoro();
+    });
+
+    // Simula que o usuario foi para outro app ou aba por 10 minutos (600 segundos)
+    act(() => {
+      vi.advanceTimersByTime(600 * 1000);
+      // Simula evento de retorno à aba (visibilitychange)
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    // 25m (1500s) - 10m (600s) = 900s restantes
+    expect(result.current.pomodoroRemaining).toBe(1500 - 600);
+    expect(result.current.pomodoroStage).toBe('focus');
+
+    // O cronometro livre tambem deve ter acumulado exatamente os 600 segundos
+    expect(result.current.freeElapsed).toBe(600);
+  });
+
+  it('deve atualizar o document.title com a contagem regressiva e estagio do Pomodoro', () => {
+    const wrapper = ({ children }) => <TimerProvider>{children}</TimerProvider>;
+    const { result } = renderHook(() => useTimer(), { wrapper });
+
+    act(() => {
+      result.current.setTimerMode('pomodoro');
+      result.current.startPomodoro();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(document.title).toContain('24:58');
+    expect(document.title).toContain('Foco');
+  });
 });

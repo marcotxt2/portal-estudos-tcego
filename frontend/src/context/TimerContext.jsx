@@ -12,12 +12,31 @@ const MODE_STORAGE_KEY = 'portal_timer_mode';
 const FREE_STORAGE_KEY = 'portal_timer_free';
 const POMODORO_STORAGE_KEY = 'portal_timer_pomodoro';
 
+export const STAGE_LABELS = {
+  focus: 'Foco',
+  short_break: 'Pausa Curta',
+  long_break: 'Pausa Longa',
+};
+
 function getTodayString() {
   const d = new Date();
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+export function formatElapsed(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+export function formatCountdown(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
 export function playNotificationChime() {
@@ -31,7 +50,7 @@ export function playNotificationChime() {
     const gain1 = ctx.createGain();
     osc1.type = 'sine';
     osc1.frequency.setValueAtTime(587.33, now); // D5
-    gain1.gain.setValueAtTime(0.12, now);
+    gain1.gain.setValueAtTime(0.15, now);
     gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
     osc1.connect(gain1);
     gain1.connect(ctx.destination);
@@ -42,7 +61,7 @@ export function playNotificationChime() {
     const gain2 = ctx.createGain();
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(880, now + 0.2); // A5
-    gain2.gain.setValueAtTime(0.15, now + 0.2);
+    gain2.gain.setValueAtTime(0.18, now + 0.2);
     gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
     osc2.connect(gain2);
     gain2.connect(ctx.destination);
@@ -51,6 +70,14 @@ export function playNotificationChime() {
   } catch {
     // Web Audio nao suportado ou bloqueado no ambiente
   }
+}
+
+export function showDesktopNotification(title, body) {
+  try {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body });
+    }
+  } catch {}
 }
 
 export const TimerProvider = ({ children }) => {
@@ -158,6 +185,12 @@ export const TimerProvider = ({ children }) => {
     return 0;
   });
 
+  // Referencias de Timestamp Absoluto (Wall-clock) para funcionamento perfeito em segundo plano
+  const lastFreeTickRef = useRef(isFreeRunning ? Date.now() : null);
+  const pomodoroTargetEndRef = useRef(
+    isPomodoroRunning ? Date.now() + pomodoroRemaining * 1000 : null
+  );
+
   // Persistencia de modo
   const changeTimerMode = (newMode) => {
     setTimerMode(newMode);
@@ -208,34 +241,42 @@ export const TimerProvider = ({ children }) => {
       setPomodoroStage('focus');
       setPomodorosCompletedToday(0);
       setPomodoroCycleCount(0);
+      pomodoroTargetEndRef.current = null;
+      lastFreeTickRef.current = Date.now();
       return true;
     }
     return false;
   }, []);
 
-  // Interval principal para Free Timer
-  useEffect(() => {
-    if (!isFreeRunning) return;
+  // Sincronizacao baseada em timestamp real (Wall-clock time)
+  // Funciona mesmo quando a aba e suspensa ou throttled pelo navegador
+  const syncTimers = useCallback(() => {
+    const now = Date.now();
+    const rolledOver = checkDayRollover();
+    if (rolledOver) return;
 
-    const interval = setInterval(() => {
-      const rolledOver = checkDayRollover();
-      if (!rolledOver) {
-        setFreeElapsed((prev) => prev + 1);
+    // 1. Sincroniza Cronometro Livre
+    if (isFreeRunning) {
+      if (lastFreeTickRef.current === null) {
+        lastFreeTickRef.current = now;
+      } else {
+        const delta = Math.floor((now - lastFreeTickRef.current) / 1000);
+        if (delta > 0) {
+          lastFreeTickRef.current += delta * 1000;
+          setFreeElapsed((prev) => prev + delta);
+        }
       }
-    }, 1000);
+    }
 
-    return () => clearInterval(interval);
-  }, [isFreeRunning, checkDayRollover]);
+    // 2. Sincroniza Pomodoro Timer
+    if (isPomodoroRunning) {
+      if (!pomodoroTargetEndRef.current) {
+        pomodoroTargetEndRef.current = now + pomodoroRemaining * 1000;
+      } else {
+        const diffSec = Math.round((pomodoroTargetEndRef.current - now) / 1000);
 
-  // Interval principal para Pomodoro Timer
-  useEffect(() => {
-    if (!isPomodoroRunning) return;
-
-    const interval = setInterval(() => {
-      checkDayRollover();
-      setPomodoroRemaining((prev) => {
-        if (prev <= 1) {
-          // Transicao automatica de estagio
+        if (diffSec <= 0) {
+          // Bloco finalizado mesmo se estava em segundo plano!
           playNotificationChime();
 
           if (pomodoroStage === 'focus') {
@@ -244,56 +285,141 @@ export const TimerProvider = ({ children }) => {
             setPomodorosCompletedToday(newCompleted);
             setPomodoroCycleCount(newCycle);
 
-            if (newCycle % CYCLES_PER_LONG_BREAK === 0) {
-              setPomodoroStage('long_break');
-              return LONG_BREAK_TIME;
-            } else {
-              setPomodoroStage('short_break');
-              return SHORT_BREAK_TIME;
-            }
+            const isLong = newCycle % CYCLES_PER_LONG_BREAK === 0;
+            const nextStage = isLong ? 'long_break' : 'short_break';
+            const nextDuration = isLong ? LONG_BREAK_TIME : SHORT_BREAK_TIME;
+
+            setPomodoroStage(nextStage);
+            setPomodoroRemaining(nextDuration);
+            pomodoroTargetEndRef.current = now + nextDuration * 1000;
+
+            showDesktopNotification(
+              'Ciclo de Foco Concluído!',
+              isLong ? 'Excelente! Faça uma pausa longa de 15 minutos.' : 'Ótimo trabalho! Hora de uma pausa curta de 5 minutos.'
+            );
           } else {
             setPomodoroStage('focus');
-            return FOCUS_TIME;
+            setPomodoroRemaining(FOCUS_TIME);
+            pomodoroTargetEndRef.current = now + FOCUS_TIME * 1000;
+
+            showDesktopNotification(
+              'Intervalo Finalizado!',
+              'Pronto para o próximo bloco de foco de 25 minutos?'
+            );
           }
+        } else {
+          setPomodoroRemaining(diffSec);
         }
-        return prev - 1;
-      });
+      }
+    }
+  }, [
+    checkDayRollover,
+    isFreeRunning,
+    isPomodoroRunning,
+    pomodoroRemaining,
+    pomodoroStage,
+    pomodorosCompletedToday,
+    pomodoroCycleCount,
+  ]);
+
+  // Interval principal (1 segundo) + escuta de visibilitychange / window focus
+  useEffect(() => {
+    const interval = setInterval(() => {
+      syncTimers();
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [isPomodoroRunning, pomodoroStage, pomodorosCompletedToday, pomodoroCycleCount, checkDayRollover]);
+    const handleVisibilityOrFocus = () => {
+      syncTimers();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [syncTimers]);
+
+  // Atualizacao dinamica do titulo da aba para visualizacao mesmo fora da aplicacao
+  useEffect(() => {
+    if (timerMode === 'pomodoro' && isPomodoroRunning) {
+      const label = STAGE_LABELS[pomodoroStage] || 'Pomodoro';
+      document.title = `(${formatCountdown(pomodoroRemaining)}) ${label} | Portal TCE-GO`;
+    } else if (timerMode === 'free' && isFreeRunning) {
+      document.title = `(${formatElapsed(freeElapsed)}) Portal TCE-GO`;
+    } else {
+      document.title = 'Portal TCE-GO';
+    }
+
+    return () => {
+      document.title = 'Portal TCE-GO';
+    };
+  }, [timerMode, isPomodoroRunning, pomodoroRemaining, pomodoroStage, isFreeRunning, freeElapsed]);
 
   // Acoes Free Timer
-  const pauseFreeTimer = () => setIsFreeRunning(false);
-  const resumeFreeTimer = () => setIsFreeRunning(true);
+  const pauseFreeTimer = () => {
+    setIsFreeRunning(false);
+    lastFreeTickRef.current = null;
+  };
+
+  const resumeFreeTimer = () => {
+    lastFreeTickRef.current = Date.now();
+    setIsFreeRunning(true);
+  };
+
   const resetFreeTimer = () => {
     setFreeElapsed(0);
+    lastFreeTickRef.current = Date.now();
     setIsFreeRunning(true);
   };
 
   // Acoes Pomodoro Timer
-  const startPomodoro = () => setIsPomodoroRunning(true);
-  const pausePomodoro = () => setIsPomodoroRunning(false);
+  const startPomodoro = () => {
+    // Solicita permissao de notificacoes caso o navegador suporte
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+    pomodoroTargetEndRef.current = Date.now() + pomodoroRemaining * 1000;
+    setIsPomodoroRunning(true);
+  };
+
+  const pausePomodoro = () => {
+    if (pomodoroTargetEndRef.current) {
+      const rem = Math.max(0, Math.round((pomodoroTargetEndRef.current - Date.now()) / 1000));
+      setPomodoroRemaining(rem);
+    }
+    pomodoroTargetEndRef.current = null;
+    setIsPomodoroRunning(false);
+  };
 
   const skipPomodoroStage = () => {
+    const now = Date.now();
     if (pomodoroStage === 'focus') {
       const nextCycle = pomodoroCycleCount + 1;
       setPomodoroCycleCount(nextCycle);
-      if (nextCycle % CYCLES_PER_LONG_BREAK === 0) {
-        setPomodoroStage('long_break');
-        setPomodoroRemaining(LONG_BREAK_TIME);
-      } else {
-        setPomodoroStage('short_break');
-        setPomodoroRemaining(SHORT_BREAK_TIME);
+      const isLong = nextCycle % CYCLES_PER_LONG_BREAK === 0;
+      const nextStage = isLong ? 'long_break' : 'short_break';
+      const nextDuration = isLong ? LONG_BREAK_TIME : SHORT_BREAK_TIME;
+
+      setPomodoroStage(nextStage);
+      setPomodoroRemaining(nextDuration);
+      if (isPomodoroRunning) {
+        pomodoroTargetEndRef.current = now + nextDuration * 1000;
       }
     } else {
       setPomodoroStage('focus');
       setPomodoroRemaining(FOCUS_TIME);
+      if (isPomodoroRunning) {
+        pomodoroTargetEndRef.current = now + FOCUS_TIME * 1000;
+      }
     }
   };
 
   const resetPomodoro = () => {
     setIsPomodoroRunning(false);
+    pomodoroTargetEndRef.current = null;
     setPomodoroStage('focus');
     setPomodoroRemaining(FOCUS_TIME);
   };
@@ -301,6 +427,7 @@ export const TimerProvider = ({ children }) => {
   // Encerrar sessao completa (Livre + Pomodoro)
   const endSession = () => {
     setFreeElapsed(0);
+    lastFreeTickRef.current = Date.now();
     setIsFreeRunning(true);
     resetPomodoro();
     setPomodorosCompletedToday(0);
