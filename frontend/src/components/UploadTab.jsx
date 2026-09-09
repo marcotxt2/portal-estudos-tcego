@@ -1,8 +1,6 @@
-// @spec:AC-013 @spec:AC-014 @spec:AC-010 @spec:AC-011 @spec:AC-015 @spec:AC-018 @spec:AC-019
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUpload } from '../context/UploadContext';
-import { fetchModules } from '../api';
-import { useEffect } from 'react';
+import { fetchModules, fetchUploads } from '../api';
 
 // --- Icones SVG Lucide ---
 const UploadIcon = () => (
@@ -32,7 +30,7 @@ const XIcon = () => (
 
 // --- Barra de progresso por arquivo (AC-010) ---
 function UploadCard({ item, onDismiss }) {
-  const { fileName, status, processed_chunks, total_chunks } = item;
+  const { fileName, status, processed_chunks, total_chunks, extracted_questions_count } = item;
 
   const percent = status === 'completed'
     ? 100
@@ -40,11 +38,17 @@ function UploadCard({ item, onDismiss }) {
       ? Math.max(5, Math.round((processed_chunks / total_chunks) * 100))
       : 0;
 
+  let completedText = 'Extracao concluida';
+  if (extracted_questions_count && extracted_questions_count > 0) {
+    const qLabel = extracted_questions_count === 1 ? '1 questao extraida' : `${extracted_questions_count} questoes extraidas`;
+    completedText = `Extracao concluida (${qLabel})`;
+  }
+
   const stepLabel = {
     uploading:  'Enviando arquivo...',
     pending:    'Preparando chunks...',
     processing: `Analisando com IA (${processed_chunks}/${total_chunks} chunks)`,
-    completed:  'Extracao concluida',
+    completed:  completedText,
     error:      item.errorMapped || 'Erro inesperado.',
   }[status] ?? status;
 
@@ -111,10 +115,29 @@ const UploadTab = () => {
   const [modules, setModules] = useState([]);
   const [selectedModule, setSelectedModule] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const loadHistory = useCallback(() => {
+    setLoadingHistory(true);
+    fetchUploads()
+      .then(data => setHistory(data || []))
+      .catch(() => {})
+      .finally(() => setLoadingHistory(false));
+  }, []);
 
   useEffect(() => {
     fetchModules().then(setModules).catch(console.error);
-  }, []);
+    loadHistory();
+  }, [loadHistory]);
+
+  // Recarrega histórico quando qualquer upload terminar com sucesso
+  useEffect(() => {
+    const hasCompleted = uploadQueue.some(item => item.status === 'completed');
+    if (hasCompleted) {
+      loadHistory();
+    }
+  }, [uploadQueue, loadHistory]);
 
   // Mapeia erros Gemini para exibicao nos cards
   const queueWithMappedErrors = uploadQueue.map(item => ({
@@ -217,6 +240,77 @@ const UploadTab = () => {
           ))}
         </div>
       )}
+
+      {/* Historico de materiais processados */}
+      <div className="pt-6 border-t" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+              Historico de Materiais Processados
+            </h3>
+            <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+              PDFs enviados e volume de questoes extraidas
+            </p>
+          </div>
+          <button
+            onClick={loadHistory}
+            className="text-xs px-2.5 py-1 rounded border transition-colors cursor-pointer"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+          >
+            Atualizar
+          </button>
+        </div>
+
+        {loadingHistory && history.length === 0 ? (
+          <p className="text-xs py-4" style={{ color: 'var(--color-muted)' }}>
+            Carregando historico...
+          </p>
+        ) : history.length === 0 ? (
+          <p className="text-xs py-4" style={{ color: 'var(--color-muted)' }}>
+            Nenhum material processado ainda.
+          </p>
+        ) : (
+          <div
+            className="divide-y rounded-lg border overflow-hidden"
+            style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}
+          >
+            {history.map(item => (
+              <div key={item.id} className="p-3.5 flex items-center justify-between gap-4 text-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span style={{ color: 'var(--color-muted)', flexShrink: 0 }}><FileIcon /></span>
+                  <div className="min-w-0">
+                    <p className="font-medium truncate" style={{ color: 'var(--color-text)' }}>
+                      {item.filename}
+                    </p>
+                    <p className="text-[11px]" style={{ color: 'var(--color-muted)' }}>
+                      {item.module_name} &bull; {new Date(item.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <span
+                    className="font-mono font-medium px-2 py-0.5 rounded border text-[11px]"
+                    style={{
+                      borderColor: 'var(--color-border)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      color: 'var(--color-text)'
+                    }}
+                  >
+                    {item.extracted_questions_count ?? 0} {item.extracted_questions_count === 1 ? 'questao' : 'questoes'}
+                  </span>
+                  <span className={`text-[11px] font-medium ${
+                    item.status === 'completed' ? 'text-green-400' :
+                    item.status === 'error' ? 'text-red-400' : 'text-blue-400'
+                  }`}>
+                    {item.status === 'completed' ? 'Concluido' :
+                     item.status === 'error' ? 'Erro' : 'Processando'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

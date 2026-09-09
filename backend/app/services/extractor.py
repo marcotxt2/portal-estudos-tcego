@@ -209,11 +209,13 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
             db.commit()
 
         chunk_error = False
+        total_extracted_count = task.extracted_questions_count if task and task.extracted_questions_count else 0
+        source_filename = task.filename if task and task.filename else os.path.basename(file_path)
+
         for chunk_path in chunks:
             try:
                 extracted = extract_content_with_gemini(chunk_path, contents_json)
-                
-
+                total_extracted_count += len(extracted.questions)
 
                 for q in extracted.questions:
                     # Deduplicar: buscar se já existe questão muito parecida no mesmo módulo
@@ -230,6 +232,7 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
                                 eq.correct_option = q.correct_option
                                 eq.explanation = q.explanation
                                 eq.is_ai_generated = False
+                                eq.source_file = source_filename
                             break
                             
                     content_id = None
@@ -246,13 +249,15 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
                             options=q.options,
                             correct_option=q.correct_option,
                             explanation=q.explanation,
-                            is_ai_generated=q.is_ai_generated
+                            is_ai_generated=q.is_ai_generated,
+                            source_file=source_filename
                         )
                         db.add(question)
 
                 db.commit()
                 if task:
                     task.processed_chunks += 1
+                    task.extracted_questions_count = total_extracted_count
                     db.commit()
                 print(f"Inseridos {len(extracted.questions)} questoes.")
             except Exception as e:
@@ -285,6 +290,7 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
         # Somente marca como completed se nenhum chunk falhou
         if task and not chunk_error:
             task.status = "completed"
+            task.extracted_questions_count = total_extracted_count
             db.commit()
 
     except Exception as e:

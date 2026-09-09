@@ -75,6 +75,12 @@ export const fetchUploadStatus = async (taskId) => {
   return res.json();
 };
 
+export const fetchUploads = async () => {
+  const res = await fetchWithAuth(`${API_URL}/modules/uploads`);
+  if (!res.ok) throw new Error('Failed to fetch uploads');
+  return res.json();
+};
+
 export const fetchContents = async () => {
   const res = await fetchWithAuth(`${API_URL}/questions/contents`);
   if (!res.ok) throw new Error('Failed to fetch contents');

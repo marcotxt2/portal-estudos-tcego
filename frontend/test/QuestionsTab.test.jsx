@@ -43,17 +43,7 @@ describe('QuestionsTab', () => {
     api.submitAnswer.mockResolvedValue({});
     api.fetchContents.mockResolvedValue([]);
 
-    // Mock sessionStorage para isolar os testes
-    const sessionStorageMock = (() => {
-      let store = {};
-      return {
-        getItem: (key) => store[key] ?? null,
-        setItem: (key, val) => { store[key] = String(val); },
-        removeItem: (key) => { delete store[key]; },
-        clear: () => { store = {}; },
-      };
-    })();
-    Object.defineProperty(window, 'sessionStorage', { value: sessionStorageMock, writable: true });
+    sessionStorage.clear();
   });
 
   it('renders first question on mount', () => {
@@ -77,7 +67,7 @@ describe('QuestionsTab', () => {
     
     // Click checkbox
     const checkbox = screen.getByLabelText(/Não mostrar questões já respondidas/i);
-    fireEvent.click(checkbox);
+    fireEvent.click(checkbox.closest('label'));
     
     // Click Apply
     const applyBtn = screen.getByText('Aplicar');
@@ -86,7 +76,9 @@ describe('QuestionsTab', () => {
     });
     
     // Assert congrats message
-    expect(screen.getByText('Parabéns! Você respondeu todas as questões deste filtro.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Parabéns! Você respondeu todas as questões deste filtro.')).toBeInTheDocument();
+    });
   });
 
   it('selects option and confirms answer', async () => {
@@ -201,5 +193,15 @@ describe('QuestionsTab', () => {
     
     // Should see explanation
     expect(screen.getByText(/Texto explicando por que A está errada e B está certa/)).toBeInTheDocument();
+  });
+
+  it('displays source_file badge when question has origin PDF', () => {
+    const questionWithSource = {
+      ...mockQuestions[0],
+      source_file: 'aula_01_tce.pdf',
+    };
+    renderQuestionsTab([questionWithSource]);
+
+    expect(screen.getByText('aula_01_tce.pdf')).toBeInTheDocument();
   });
 });

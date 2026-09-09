@@ -8,6 +8,7 @@ vi.mock('../src/api', () => ({
   fetchModules: vi.fn(),
   uploadPdf: vi.fn(),
   fetchUploadStatus: vi.fn(),
+  fetchUploads: vi.fn(),
 }));
 
 // Helper: renderiza UploadTab dentro do Provider obrigatorio
@@ -31,6 +32,7 @@ describe('UploadTab', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     api.fetchModules.mockResolvedValue(mockModules);
+    api.fetchUploads.mockResolvedValue([]);
 
     // Mock localStorage para nao interferir nos testes
     const localStorageMock = (() => {
@@ -195,5 +197,55 @@ describe('UploadTab', () => {
     });
 
     expect(await screen.findByText('drop.pdf')).toBeInTheDocument();
+  });
+
+  it('displays extracted questions count when upload completes with count', async () => {
+    api.uploadPdf.mockResolvedValue({ task_id: 'task-count' });
+    api.fetchUploadStatus
+      .mockResolvedValueOnce({
+        status: 'completed',
+        processed_chunks: 2,
+        total_chunks: 2,
+        extracted_questions_count: 8
+      });
+
+    renderUploadTab();
+
+    const select = await screen.findByRole('combobox');
+    fireEvent.change(select, { target: { value: 'Módulo 1' } });
+
+    const file = new File(['content'], 'apostila.pdf', { type: 'application/pdf' });
+    const input = document.getElementById('pdf-input');
+
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+
+    await act(async () => {
+      if (intervalCb) await intervalCb();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Extracao concluida (8 questoes extraidas)')).toBeInTheDocument();
+    });
+  });
+
+  it('renders history of processed materials with extracted questions count', async () => {
+    api.fetchUploads.mockResolvedValue([
+      {
+        id: 'hist-1',
+        filename: 'direito_adm.pdf',
+        module_name: 'Direito Administrativo',
+        status: 'completed',
+        extracted_questions_count: 15,
+        created_at: '2026-09-08T10:00:00Z',
+      },
+    ]);
+
+    renderUploadTab();
+
+    expect(await screen.findByText('direito_adm.pdf')).toBeInTheDocument();
+    expect(screen.getByText('15 questoes')).toBeInTheDocument();
+    expect(screen.getByText('Concluido')).toBeInTheDocument();
   });
 });

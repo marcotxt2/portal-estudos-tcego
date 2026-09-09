@@ -20,6 +20,7 @@ def get_filtered_questions(
     materia: Optional[str] = None,
     content_ids: Optional[str] = None,  # comma-separated
     q: Optional[str] = None,
+    source_file: Optional[str] = None,
     apenas_erros: bool = False,
     nao_respondidas: bool = False,
     limit: Optional[int] = None,
@@ -27,6 +28,9 @@ def get_filtered_questions(
     current_user: User = Depends(get_current_user)
 ):
     query = db.query(Question)
+    
+    if source_file:
+        query = query.filter(Question.source_file == source_file)
     
     if materia:
         query = query.join(Content, Question.content_id == Content.id)

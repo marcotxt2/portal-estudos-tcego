@@ -39,6 +39,7 @@ class Question(Base):
 
     explanation = Column(Text, nullable=True)
     is_ai_generated = Column(Boolean, nullable=False, default=False, server_default="false")
+    source_file = Column(String(255), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
 
 class UserProgress(Base):
@@ -60,5 +61,6 @@ class UploadTask(Base):
     status = Column(String(50), nullable=False, default="pending")
     total_chunks = Column(Integer, nullable=False, default=0)
     processed_chunks = Column(Integer, nullable=False, default=0)
+    extracted_questions_count = Column(Integer, nullable=False, default=0, server_default="0")
     error_message = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())

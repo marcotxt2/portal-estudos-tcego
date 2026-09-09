@@ -197,4 +197,20 @@ describe('BancoQuestoes - Navegacao Continua', () => {
       expect(screen.getByText('Questao 2 de 2')).toBeInTheDocument();
     });
   });
+
+  it('exibe badge com o nome do arquivo de origem na questao quando fornecido', async () => {
+    const questionsWithSource = [
+      {
+        ...mockQuestions[0],
+        source_file: 'edital_normas_tce.pdf',
+      },
+    ];
+    api.fetchFilteredQuestions.mockResolvedValue(questionsWithSource);
+
+    render(<BancoQuestoes />);
+
+    await waitFor(() => {
+      expect(screen.getByText('edital_normas_tce.pdf')).toBeInTheDocument();
+    });
+  });
 });

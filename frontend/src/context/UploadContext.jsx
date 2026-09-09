@@ -24,8 +24,8 @@ function mapGeminiError(msg) {
 function savePendingTasks(queue) {
   const persistable = queue
     .filter(item => item.taskId)
-    .map(({ localId, fileName, taskId, status, processed_chunks, total_chunks, errorMessage, errorMapped }) => ({
-      localId, fileName, taskId, status, processed_chunks, total_chunks, errorMessage, errorMapped,
+    .map(({ localId, fileName, taskId, status, processed_chunks, total_chunks, extracted_questions_count, errorMessage, errorMapped }) => ({
+      localId, fileName, taskId, status, processed_chunks, total_chunks, extracted_questions_count, errorMessage, errorMapped,
     }));
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
@@ -63,6 +63,7 @@ export function UploadProvider({ children, onUploadComplete }) {
           status: status.status,
           processed_chunks: status.processed_chunks,
           total_chunks: status.total_chunks,
+          extracted_questions_count: status.extracted_questions_count ?? 0,
           errorMessage: status.error_message,
         });
 

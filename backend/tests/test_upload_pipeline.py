@@ -195,3 +195,63 @@ def test_parse_extracted_json_formats():
     assert len(res3.questions) == 1
     assert res3.questions[0].statement == "Q3"
 
+
+def test_uploads_list_and_extracted_questions_count():
+    """
+    Valida que GET /api/modules/uploads lista tarefas e que extracted_questions_count e retornado.
+    """
+    db = TestingSessionLocal()
+    task_id = str(uuid.uuid4())
+    db.add(UploadTask(
+        id=task_id,
+        filename="apostila_tce.pdf",
+        module_name="Engenharia de Software",
+        status="completed",
+        total_chunks=2,
+        processed_chunks=2,
+        extracted_questions_count=12
+    ))
+    db.commit()
+    db.close()
+
+    response = client.get("/api/modules/uploads")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    task_item = next((t for t in data if t["id"] == task_id), None)
+    assert task_item is not None
+    assert task_item["filename"] == "apostila_tce.pdf"
+    assert task_item["extracted_questions_count"] == 12
+
+
+def test_question_source_file_persisted_and_filtered():
+    """
+    Valida que Question persiste source_file e que GET /api/questions/ permite filtrar por source_file.
+    """
+    db = TestingSessionLocal()
+    q1 = Question(
+        statement="Questão originária do PDF 1",
+        options={"A": "Opção 1"},
+        correct_option="A",
+        source_file="edital_2026.pdf"
+    )
+    q2 = Question(
+        statement="Questão originária do PDF 2",
+        options={"B": "Opção 2"},
+        correct_option="B",
+        source_file="legislacao_go.pdf"
+    )
+    db.add_all([q1, q2])
+    db.commit()
+    db.close()
+
+    # Filtra por edital_2026.pdf
+    res1 = client.get("/api/questions/?source_file=edital_2026.pdf")
+    assert res1.status_code == 200
+    items1 = res1.json()
+    assert any(q["statement"] == "Questão originária do PDF 1" for q in items1)
+    assert not any(q["statement"] == "Questão originária do PDF 2" for q in items1)
+    found_q = next(q for q in items1 if q["statement"] == "Questão originária do PDF 1")
+    assert found_q["source_file"] == "edital_2026.pdf"
+
+

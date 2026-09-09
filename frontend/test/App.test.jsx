@@ -8,6 +8,7 @@ vi.mock('../src/api', () => ({
   fetchModules: vi.fn(),
   uploadPdf: vi.fn(),
   fetchUploadStatus: vi.fn(),
+  fetchUploads: vi.fn(() => Promise.resolve([])),
   fetchContents: vi.fn(),
   fetchReview: vi.fn(),
   fetchFilteredQuestions: vi.fn(() => Promise.resolve([])),

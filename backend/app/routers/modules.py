@@ -43,7 +43,8 @@ def upload_pdf(
         id=task_id,
         filename=file.filename,
         module_name=module_name,
-        status="pending"
+        status="pending",
+        extracted_questions_count=0
     )
     db.add(upload_task)
     db.commit()
@@ -53,6 +54,11 @@ def upload_pdf(
     background_tasks.add_task(process_pdf_background, file_path, module_name, task_id)
     
     return {"message": "Upload recebido! A extração está ocorrendo em segundo plano.", "task_id": task_id, "module_name": module_name}
+
+@router.get("/uploads", response_model=list[UploadTaskResponse])
+def list_uploads(db: Session = Depends(get_db)):
+    tasks = db.query(UploadTask).order_by(UploadTask.created_at.desc()).limit(50).all()
+    return tasks
 
 @router.get("/upload/{task_id}/status", response_model=UploadTaskResponse)
 def get_upload_status(task_id: str, db: Session = Depends(get_db)):

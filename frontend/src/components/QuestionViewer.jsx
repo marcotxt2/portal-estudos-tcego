@@ -12,6 +12,14 @@ const BotIcon = () => (
   </svg>
 );
 
+const FileIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
+    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+  </svg>
+);
+
 const QuestionViewer = ({
   question,
   questionIndex,
@@ -76,14 +84,37 @@ const QuestionViewer = ({
         backgroundColor: 'var(--color-surface)',
         borderColor: 'var(--color-border)',
       }}>
-        {/* Badge IA */}
-        {question.is_ai_generated && (
-          <div className="mb-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
-            style={{ backgroundColor: 'rgba(147,51,234,0.1)', borderColor: 'rgba(147,51,234,0.3)', color: '#c084fc' }}>
-            <BotIcon />
-            Gabarito Deduzido pela IA
-          </div>
-        )}
+        {/* Badges / Metadados */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {question.source_file && (
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
+              style={{
+                backgroundColor: 'rgba(59,130,246,0.1)',
+                borderColor: 'rgba(59,130,246,0.25)',
+                color: '#93c5fd',
+              }}
+              title={`Arquivo de origem: ${question.source_file}`}
+            >
+              <FileIcon />
+              <span className="max-w-[260px] truncate">{question.source_file}</span>
+            </div>
+          )}
+
+          {question.is_ai_generated && (
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
+              style={{
+                backgroundColor: 'rgba(147,51,234,0.1)',
+                borderColor: 'rgba(147,51,234,0.3)',
+                color: '#c084fc',
+              }}
+            >
+              <BotIcon />
+              Gabarito Deduzido pela IA
+            </div>
+          )}
+        </div>
 
         <p className="text-sm leading-relaxed mb-5" style={{ color: 'var(--color-text)' }}>
           {question.statement}

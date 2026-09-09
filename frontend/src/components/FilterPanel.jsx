@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 
+const EMPTY_ARRAY = [];
+
 const FilterPanel = ({
   materia: initialMateria = '',
-  contentIds: initialContentIds = [],
+  contentIds: initialContentIds = EMPTY_ARRAY,
   searchQuery: initialSearchQuery = '',
   apenasErros: initialApenasErros = false,
   naoRespondidas: initialNaoRespondidas = false,
   onFilterChange,
-  contents = []
+  contents = EMPTY_ARRAY
 }) => {
   const [materia, setMateria] = useState(initialMateria);
   const [contentIds, setContentIds] = useState(initialContentIds);
@@ -128,12 +130,8 @@ const FilterPanel = ({
       {/* Filtros rápidos e Botões de Ação */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center pt-2 gap-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
         <div className="flex flex-wrap items-center gap-3">
-          {/* Toggle: Apenas erros */}
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={apenasErros}
-            onClick={() => setApenasErros(!apenasErros)}
+          {/* Toggle: Apenas Erros */}
+          <label
             className="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all duration-150 select-none"
             style={{
               borderColor: apenasErros ? '#ef4444' : 'var(--color-border)',
@@ -162,14 +160,10 @@ const FilterPanel = ({
               checked={apenasErros}
               onChange={(e) => setApenasErros(e.target.checked)}
             />
-          </button>
+          </label>
 
           {/* Toggle: Não respondidas */}
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={naoRespondidas}
-            onClick={() => setNaoRespondidas(!naoRespondidas)}
+          <label
             className="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all duration-150 select-none"
             style={{
               borderColor: naoRespondidas ? '#3b82f6' : 'var(--color-border)',
@@ -198,7 +192,7 @@ const FilterPanel = ({
               checked={naoRespondidas}
               onChange={(e) => setNaoRespondidas(e.target.checked)}
             />
-          </button>
+          </label>
         </div>
 
         {/* Botões de Ação */}

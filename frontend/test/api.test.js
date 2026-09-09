@@ -65,4 +65,19 @@ describe('api - fetchFilteredQuestions & fetchReview', () => {
     expect(calledUrl).toContain('materia=Seguranca');
     expect(calledUrl).toContain('content_ids=10%2C20');
   });
+
+  it('fetchUploads chama endpoint /modules/uploads corretamente', async () => {
+    const { fetchUploads } = await import('../src/api');
+    const mockTasks = [{ id: '1', filename: 'doc.pdf', extracted_questions_count: 5 }];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockTasks)
+    });
+    global.fetch = fetchMock;
+
+    const data = await fetchUploads();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toContain('/modules/uploads');
+    expect(data).toEqual(mockTasks);
+  });
 });

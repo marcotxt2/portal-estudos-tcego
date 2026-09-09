@@ -11,10 +11,12 @@ async def lifespan(app: FastAPI):
         root_dir = Path(__file__).resolve().parent.parent
         if str(root_dir) not in sys.path:
             sys.path.insert(0, str(root_dir))
+        from db_update import upgrade_db
+        upgrade_db(engine)
         from seed import seed_modules
         seed_modules()
     except Exception as e:
-        print(f"Warning: Auto-seed on startup failed: {e}")
+        print(f"Warning: Auto-migration or auto-seed on startup failed: {e}")
     yield
 
 app = FastAPI(title="Portal de Estudos TCE-GO API", lifespan=lifespan)
