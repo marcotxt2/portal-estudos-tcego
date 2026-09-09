@@ -73,8 +73,7 @@ def parse_extracted_json(raw_text: str) -> ExtractedContent:
     retry=retry_if_exception_type(Exception)
 )
 def extract_content_with_gemini(file_path: str, contents_json: str) -> ExtractedContent:
-    with gemini_semaphore:
-        api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY not configured")
     gemini_client = genai.Client(api_key=api_key)
@@ -107,50 +106,51 @@ def extract_content_with_gemini(file_path: str, contents_json: str) -> Extracted
         f"Retorne EXCLUSIVAMENTE um objeto JSON válido com esta estrutura exata:\n{schema_example}"
     )
 
-    uploaded_file = None
-    try:
-        # Upload para a File API do Gemini
-        uploaded_file = gemini_client.files.upload(path=file_path)
-        part = types.Part.from_uri(file_uri=uploaded_file.uri, mime_type='application/pdf')
-        
-        models_to_try = [
-            os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest"),
-            "gemini-flash-lite-latest",
-            "gemini-2.5-flash-lite",
-            "gemini-2.5-flash",
-        ]
-        # Remove duplicados preservando a ordem
-        models_to_try = list(dict.fromkeys(models_to_try))
+    with gemini_semaphore:
+        uploaded_file = None
+        try:
+            # Upload para a File API do Gemini
+            uploaded_file = gemini_client.files.upload(path=file_path)
+            part = types.Part.from_uri(file_uri=uploaded_file.uri, mime_type='application/pdf')
+            
+            models_to_try = [
+                os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest"),
+                "gemini-flash-lite-latest",
+                "gemini-2.5-flash-lite",
+                "gemini-2.5-flash",
+            ]
+            # Remove duplicados preservando a ordem
+            models_to_try = list(dict.fromkeys(models_to_try))
 
-        last_error = None
-        for model_name in models_to_try:
-            try:
-                response = gemini_client.models.generate_content(
-                    model=model_name,
-                    contents=[part, prompt],
-                    config={
-                        'response_mime_type': 'application/json',
-                    },
-                )
-                result = parse_extracted_json(response.text)
-                time.sleep(3)  # Intervalo de seguranca para respeitar o limite de RPM
-                return result
-            except Exception as err:
-                last_error = err
-                err_str = str(err)
-                if any(code in err_str for code in ["429", "503", "404", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
-                    print(f"Modelo {model_name} rate-limited ou indisponivel ({err_str[:80]}), aguardando antes do fallback...")
-                    time.sleep(5)
-                    continue
-                raise err
-        if last_error:
-            raise last_error
-    finally:
-        if uploaded_file:
-            try:
-                gemini_client.files.delete(name=uploaded_file.name)
-            except Exception as e:
-                print(f"Failed to delete uploaded file: {e}")
+            last_error = None
+            for model_name in models_to_try:
+                try:
+                    response = gemini_client.models.generate_content(
+                        model=model_name,
+                        contents=[part, prompt],
+                        config={
+                            'response_mime_type': 'application/json',
+                        },
+                    )
+                    result = parse_extracted_json(response.text)
+                    time.sleep(4)  # Intervalo de seguranca para respeitar o limite de 15 RPM
+                    return result
+                except Exception as err:
+                    last_error = err
+                    err_str = str(err)
+                    if any(code in err_str for code in ["429", "503", "404", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
+                        print(f"Modelo {model_name} rate-limited ou indisponivel ({err_str[:80]}), aguardando antes do fallback...")
+                        time.sleep(8)
+                        continue
+                    raise err
+            if last_error:
+                raise last_error
+        finally:
+            if uploaded_file:
+                try:
+                    gemini_client.files.delete(name=uploaded_file.name)
+                except Exception as e:
+                    print(f"Failed to delete uploaded file: {e}")
 
 
 def process_pdf_background(file_path: str, module_name: str, task_id: str):

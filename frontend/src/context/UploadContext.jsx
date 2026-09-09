@@ -148,8 +148,12 @@ export function UploadProvider({ children, onUploadComplete }) {
     setUploadQueue(q => q.filter(item => item.localId !== localId));
   }, []);
 
+  const clearDone = useCallback(() => {
+    setUploadQueue(q => q.filter(item => item.status !== 'completed' && item.status !== 'error'));
+  }, []);
+
   return (
-    <UploadContext.Provider value={{ uploadQueue, handleFiles, handleDismiss, mapGeminiError }}>
+    <UploadContext.Provider value={{ uploadQueue, handleFiles, handleDismiss, clearDone, mapGeminiError }}>
       {children}
     </UploadContext.Provider>
   );

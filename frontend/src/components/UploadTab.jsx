@@ -110,7 +110,7 @@ function UploadCard({ item, onDismiss }) {
 
 // --- Componente principal (AC-018: apenas apresentacao, estado vem do contexto) ---
 const UploadTab = () => {
-  const { uploadQueue, handleFiles, handleDismiss, mapGeminiError } = useUpload();
+  const { uploadQueue, handleFiles, handleDismiss, clearDone, mapGeminiError } = useUpload();
 
   const [modules, setModules] = useState([]);
   const [selectedModule, setSelectedModule] = useState('');
@@ -232,9 +232,20 @@ const UploadTab = () => {
       {/* Fila de uploads (AC-010, AC-013) */}
       {queueWithMappedErrors.length > 0 && (
         <div className="space-y-3">
-          <p className="text-xs font-medium" style={{ color: 'var(--color-muted)' }}>
-            {queueWithMappedErrors.length} arquivo{queueWithMappedErrors.length > 1 ? 's' : ''}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium" style={{ color: 'var(--color-muted)' }}>
+              {queueWithMappedErrors.length} arquivo{queueWithMappedErrors.length > 1 ? 's' : ''}
+            </p>
+            {queueWithMappedErrors.some(item => item.status === 'completed' || item.status === 'error') && (
+              <button
+                onClick={clearDone}
+                className="text-xs transition-colors hover:underline cursor-pointer"
+                style={{ color: 'var(--color-muted)' }}
+              >
+                Limpar concluidos e erros
+              </button>
+            )}
+          </div>
           {queueWithMappedErrors.map(item => (
             <UploadCard key={item.localId} item={item} onDismiss={handleDismiss} />
           ))}

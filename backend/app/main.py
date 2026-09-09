@@ -15,6 +15,20 @@ async def lifespan(app: FastAPI):
         upgrade_db(engine)
         from seed import seed_modules
         seed_modules()
+        
+        # Limpar tasks orfas que estavam em processamento quando o servidor foi reiniciado
+        from app.database import SessionLocal
+        from app.models import UploadTask
+        db = SessionLocal()
+        try:
+            stale_tasks = db.query(UploadTask).filter(UploadTask.status.in_(["processing", "pending", "uploading"])).all()
+            for st in stale_tasks:
+                st.status = "error"
+                st.error_message = "Processamento interrompido. Reenvie o arquivo."
+            if stale_tasks:
+                db.commit()
+        finally:
+            db.close()
     except Exception as e:
         print(f"Warning: Auto-migration or auto-seed on startup failed: {e}")
     yield
