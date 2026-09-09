@@ -9,7 +9,7 @@ import time
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_not_exception_type
 from dotenv import load_dotenv
 
 from sqlalchemy.orm import Session
@@ -24,8 +24,11 @@ if API_KEY:
 else:
     client = None
 
-# Semaforo global para limitar chamadas concorrentes ao Gemini evitando esgotar o limite de RPM
-gemini_semaphore = threading.Semaphore(1)
+# Semaforo global para limitar chamadas concorrentes ao Gemini
+# Agora e configuravel via ENV (padrao 5) para aproveitar melhor chaves com maior RPM.
+GEMINI_CONCURRENCY = int(os.getenv("GEMINI_CONCURRENCY", "5"))
+gemini_semaphore = threading.Semaphore(GEMINI_CONCURRENCY)
+GEMINI_SLEEP_TIME = float(os.getenv("GEMINI_SLEEP_TIME", "0"))
 
 # Schemas de Retorno para o Gemini
 class QuestionExtracted(BaseModel):
@@ -67,10 +70,13 @@ def parse_extracted_json(raw_text: str) -> ExtractedContent:
                 data = {"questions": []}
     return ExtractedContent.model_validate(data)
 
+class QuotaExceededError(Exception):
+    pass
+
 @retry(
-    wait=wait_exponential(multiplier=3, min=10, max=65),
-    stop=stop_after_attempt(5),
-    retry=retry_if_exception_type(Exception)
+    wait=wait_exponential(multiplier=2, min=5, max=30),
+    stop=stop_after_attempt(4),
+    retry=retry_if_not_exception_type(QuotaExceededError)
 )
 def extract_content_with_gemini(file_path: str, contents_json: str) -> ExtractedContent:
     api_key = os.getenv("GEMINI_API_KEY")
@@ -133,14 +139,21 @@ def extract_content_with_gemini(file_path: str, contents_json: str) -> Extracted
                         },
                     )
                     result = parse_extracted_json(response.text)
-                    time.sleep(4)  # Intervalo de seguranca para respeitar o limite de 15 RPM
+                    if GEMINI_SLEEP_TIME > 0:
+                        time.sleep(GEMINI_SLEEP_TIME)  # Intervalo de seguranca para respeitar o limite de RPM
                     return result
                 except Exception as err:
                     last_error = err
                     err_str = str(err)
-                    if any(code in err_str for code in ["429", "503", "404", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]):
-                        print(f"Modelo {model_name} rate-limited ou indisponivel ({err_str[:80]}), aguardando antes do fallback...")
-                        time.sleep(8)
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        if "Quota exceeded" in err_str or "free_tier_requests" in err_str or "limit: 500" in err_str:
+                            raise QuotaExceededError(f"Cota diária esgotada: {err_str}")
+                        print(f"Modelo {model_name} rate-limited (RPM), aguardando 2s...")
+                        time.sleep(2)
+                        continue
+                    if any(code in err_str for code in ["503", "404", "UNAVAILABLE"]):
+                        print(f"Modelo {model_name} indisponivel, aguardando 2s...")
+                        time.sleep(2)
                         continue
                     raise err
             if last_error:
