@@ -77,7 +77,7 @@ export function UploadProvider({ children, onUploadComplete }) {
       } catch (err) {
         failedAttempts += 1;
         console.warn(`Polling falhou para ${taskId} (tentativa ${failedAttempts}):`, err);
-        if (failedAttempts >= 4) {
+        if (failedAttempts >= 10) {
           clearInterval(intervalsRef.current[localId]);
           delete intervalsRef.current[localId];
           updateItem(localId, {
