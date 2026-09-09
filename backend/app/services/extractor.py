@@ -226,6 +226,8 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
                     for eq in existing_qs:
                         if re.sub(r'\W+', '', eq.statement.lower()) == norm_stmt:
                             is_duplicate = True
+                            if not eq.source_file:
+                                eq.source_file = source_filename
                             # Se a que está no banco foi deduzida pela IA e a nova tem gabarito real, atualiza
                             if eq.is_ai_generated and not q.is_ai_generated:
                                 eq.options = q.options
