@@ -204,4 +204,25 @@ describe('QuestionsTab', () => {
 
     expect(screen.getByText('aula_01_tce.pdf')).toBeInTheDocument();
   });
+
+  it('permite riscar e restaurar uma alternativa visualmente no QuestionsTab', async () => {
+    renderQuestionsTab(mockQuestions);
+
+    const strikeBtnA = screen.getByLabelText('Riscar alternativa A');
+    expect(strikeBtnA).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(strikeBtnA);
+    });
+
+    const optionBtnA = screen.getByText('São Paulo').closest('button');
+    expect(optionBtnA.className).toContain('line-through');
+    expect(optionBtnA.className).toContain('opacity-40');
+    expect(strikeBtnA).toHaveAttribute('title', 'Restaurar alternativa');
+
+    await act(async () => {
+      fireEvent.click(strikeBtnA);
+    });
+    expect(optionBtnA.className).not.toContain('line-through');
+  });
 });

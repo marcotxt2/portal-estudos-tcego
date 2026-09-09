@@ -1,4 +1,5 @@
 // @spec:AC-036, AC-037, AC-038, AC-039, AC-041, AC-042
+import { useState, useEffect } from 'react';
 import { submitAnswer } from '../api';
 
 const BotIcon = () => (
@@ -20,6 +21,15 @@ const FileIcon = () => (
   </svg>
 );
 
+const StrikethroughIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 4H9a3 3 0 0 0-2.83 4"/>
+    <path d="M14 12a4 4 0 0 1 0 8H6"/>
+    <line x1="4" x2="20" y1="12" y2="12"/>
+  </svg>
+);
+
 const QuestionViewer = ({
   question,
   questionIndex,
@@ -34,6 +44,27 @@ const QuestionViewer = ({
   // Estado local derivado do savedAnswer (prop-driven, sem useState proprio para opcao)
   const selectedOption = savedAnswer?.selectedOption ?? null;
   const showResult = savedAnswer?.showResult ?? false;
+
+  // Estado puramente visual de alternativas riscadas (eliminadas)
+  const [eliminatedOptions, setEliminatedOptions] = useState(new Set());
+
+  // Limpa alternativas riscadas ao trocar de questao
+  useEffect(() => {
+    setEliminatedOptions(new Set());
+  }, [question?.id, questionIndex]);
+
+  const toggleEliminateOption = (key, e) => {
+    e.stopPropagation();
+    setEliminatedOptions((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
 
   const handleOptionClick = (key) => {
     if (showResult) return;
@@ -121,17 +152,40 @@ const QuestionViewer = ({
         </p>
 
         <div className="space-y-2">
-          {Object.entries(question.options).map(([key, text]) => (
-            <button
-              key={key}
-              className="w-full text-left p-3.5 rounded-lg border text-sm transition-colors duration-150 cursor-pointer"
-              style={getOptionStyle(key)}
-              onClick={() => handleOptionClick(key)}
-              disabled={showResult}
-            >
-              <span className="font-semibold mr-2">{key})</span>{text}
-            </button>
-          ))}
+          {Object.entries(question.options).map(([key, text]) => {
+            const isEliminated = eliminatedOptions.has(key);
+            return (
+              <div key={key} className="relative flex items-center group">
+                <button
+                  className={`w-full text-left p-3.5 pr-11 rounded-lg border text-sm transition-all duration-150 cursor-pointer ${
+                    isEliminated ? 'opacity-40 line-through' : ''
+                  }`}
+                  style={getOptionStyle(key)}
+                  onClick={() => handleOptionClick(key)}
+                  disabled={showResult}
+                >
+                  <span className="font-semibold mr-2">{key})</span>
+                  <span>{text}</span>
+                </button>
+
+                {!showResult && (
+                  <button
+                    type="button"
+                    onClick={(e) => toggleEliminateOption(key, e)}
+                    className={`absolute right-2.5 p-1.5 rounded transition-all cursor-pointer ${
+                      isEliminated
+                        ? 'text-red-500 bg-red-500/15 opacity-100'
+                        : 'text-[var(--color-muted)] hover:text-[var(--color-text)] opacity-40 hover:opacity-100 group-hover:opacity-100'
+                    }`}
+                    title={isEliminated ? 'Restaurar alternativa' : 'Riscar alternativa'}
+                    aria-label={`Riscar alternativa ${key}`}
+                  >
+                    <StrikethroughIcon />
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

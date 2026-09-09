@@ -213,4 +213,27 @@ describe('BancoQuestoes - Navegacao Continua', () => {
       expect(screen.getByText('edital_normas_tce.pdf')).toBeInTheDocument();
     });
   });
+
+  it('permite riscar e restaurar uma alternativa visualmente', async () => {
+    render(<BancoQuestoes />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Opcao A1')).toBeInTheDocument();
+    });
+
+    const strikeBtnA = screen.getByLabelText('Riscar alternativa A');
+    expect(strikeBtnA).toBeInTheDocument();
+
+    // Clica para riscar
+    fireEvent.click(strikeBtnA);
+
+    const optionBtnA = screen.getByText('Opcao A1').closest('button');
+    expect(optionBtnA.className).toContain('line-through');
+    expect(optionBtnA.className).toContain('opacity-40');
+    expect(strikeBtnA).toHaveAttribute('title', 'Restaurar alternativa');
+
+    // Clica novamente para restaurar
+    fireEvent.click(strikeBtnA);
+    expect(optionBtnA.className).not.toContain('line-through');
+  });
 });
