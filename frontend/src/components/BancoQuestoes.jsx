@@ -40,6 +40,7 @@ const BancoQuestoes = () => {
   const [contents, setContents] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(loadSavedIndex);
   const [currentFilters, setCurrentFilters] = useState(loadSavedFilters);
   // { [questionId]: { selectedOption: string|null, showResult: bool } }
@@ -65,6 +66,7 @@ const BancoQuestoes = () => {
 
   const loadQuestions = async (params, targetIndex = 0) => {
     setLoading(true);
+    setError(null);
     setCurrentFilters(params);
     try {
       localStorage.setItem(STORAGE_KEY_FILTERS, JSON.stringify(params));
@@ -82,6 +84,7 @@ const BancoQuestoes = () => {
       }
     } catch (err) {
       console.error(err);
+      setError("Erro ao carregar questoes do servidor.");
     } finally {
       setLoading(false);
     }
@@ -138,7 +141,13 @@ const BancoQuestoes = () => {
         </div>
       )}
 
-      {!loading && questions.length === 0 && (
+      {error && !loading && (
+        <div className="text-center text-sm py-8 text-red-500">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && questions.length === 0 && (
         <div className="text-center text-sm py-8" style={{ color: 'var(--color-muted)' }}>
           Nenhuma questao encontrada para os filtros selecionados.
         </div>
