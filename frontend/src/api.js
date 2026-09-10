@@ -75,6 +75,14 @@ export const fetchUploadStatus = async (taskId) => {
   return res.json();
 };
 
+export const retryUploadTask = async (taskId) => {
+  const res = await fetchWithAuth(`${API_URL}/modules/upload/${taskId}/retry`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Failed to retry upload task');
+  return res.json();
+};
+
 export const fetchUploads = async () => {
   const res = await fetchWithAuth(`${API_URL}/modules/uploads`);
   if (!res.ok) throw new Error('Failed to fetch uploads');

@@ -1,6 +1,6 @@
 // @spec:AC-018 @spec:AC-019
 import { createContext, useContext, useRef, useState, useEffect, useCallback } from 'react';
-import { fetchUploadStatus, uploadPdf } from '../api';
+import { fetchUploadStatus, uploadPdf, retryUploadTask } from '../api';
 
 const UploadContext = createContext(null);
 
@@ -144,6 +144,20 @@ export function UploadProvider({ children, onUploadComplete }) {
     }
   }, [startPolling, updateItem]);
 
+  const handleRetryTask = useCallback(async (localId, taskId) => {
+    if (!taskId) return;
+    try {
+      await retryUploadTask(taskId);
+      updateItem(localId, { status: 'processing', errorMessage: null });
+      startPolling(localId, taskId);
+    } catch (err) {
+      updateItem(localId, {
+        status: 'error',
+        errorMessage: err?.message || 'Erro ao tentar retomar o arquivo.',
+      });
+    }
+  }, [updateItem, startPolling]);
+
   const handleDismiss = useCallback((localId) => {
     setUploadQueue(q => q.filter(item => item.localId !== localId));
   }, []);
@@ -153,7 +167,7 @@ export function UploadProvider({ children, onUploadComplete }) {
   }, []);
 
   return (
-    <UploadContext.Provider value={{ uploadQueue, handleFiles, handleDismiss, clearDone, mapGeminiError }}>
+    <UploadContext.Provider value={{ uploadQueue, handleFiles, handleDismiss, handleRetryTask, clearDone, mapGeminiError }}>
       {children}
     </UploadContext.Provider>
   );

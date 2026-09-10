@@ -9,7 +9,7 @@ import time
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_not_exception_type
+from tenacity import retry, wait_random_exponential, stop_after_attempt
 from dotenv import load_dotenv
 
 from sqlalchemy.orm import Session
@@ -24,10 +24,6 @@ if API_KEY:
 else:
     client = None
 
-# Semaforo global para limitar chamadas concorrentes ao Gemini
-# Agora e configuravel via ENV (padrao 5) para aproveitar melhor chaves com maior RPM.
-GEMINI_CONCURRENCY = int(os.getenv("GEMINI_CONCURRENCY", "5"))
-gemini_semaphore = threading.Semaphore(GEMINI_CONCURRENCY)
 GEMINI_SLEEP_TIME = float(os.getenv("GEMINI_SLEEP_TIME", "0"))
 
 # Schemas de Retorno para o Gemini
@@ -74,9 +70,8 @@ class QuotaExceededError(Exception):
     pass
 
 @retry(
-    wait=wait_exponential(multiplier=2, min=5, max=30),
-    stop=stop_after_attempt(4),
-    retry=retry_if_not_exception_type(QuotaExceededError)
+    wait=wait_random_exponential(multiplier=3, max=65),
+    stop=stop_after_attempt(5)
 )
 def extract_content_with_gemini(file_path: str, contents_json: str) -> ExtractedContent:
     api_key = os.getenv("GEMINI_API_KEY")
@@ -112,58 +107,57 @@ def extract_content_with_gemini(file_path: str, contents_json: str) -> Extracted
         f"Retorne EXCLUSIVAMENTE um objeto JSON válido com esta estrutura exata:\n{schema_example}"
     )
 
-    with gemini_semaphore:
-        uploaded_file = None
-        try:
-            # Upload para a File API do Gemini
-            uploaded_file = gemini_client.files.upload(path=file_path)
-            part = types.Part.from_uri(file_uri=uploaded_file.uri, mime_type='application/pdf')
-            
-            models_to_try = [
-                os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest"),
-                "gemini-flash-lite-latest",
-                "gemini-2.5-flash-lite",
-                "gemini-2.5-flash",
-            ]
-            # Remove duplicados preservando a ordem
-            models_to_try = list(dict.fromkeys(models_to_try))
+    uploaded_file = None
+    try:
+        # Upload para a File API do Gemini
+        uploaded_file = gemini_client.files.upload(path=file_path)
+        part = types.Part.from_uri(file_uri=uploaded_file.uri, mime_type='application/pdf')
+        
+        models_to_try = [
+            os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest"),
+            "gemini-flash-lite-latest",
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-flash",
+        ]
+        # Remove duplicados preservando a ordem
+        models_to_try = list(dict.fromkeys(models_to_try))
 
-            last_error = None
-            for model_name in models_to_try:
-                try:
-                    response = gemini_client.models.generate_content(
-                        model=model_name,
-                        contents=[part, prompt],
-                        config={
-                            'response_mime_type': 'application/json',
-                        },
-                    )
-                    result = parse_extracted_json(response.text)
-                    if GEMINI_SLEEP_TIME > 0:
-                        time.sleep(GEMINI_SLEEP_TIME)  # Intervalo de seguranca para respeitar o limite de RPM
-                    return result
-                except Exception as err:
-                    last_error = err
-                    err_str = str(err)
-                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                        if "Quota exceeded" in err_str or "free_tier_requests" in err_str or "limit: 500" in err_str:
-                            raise QuotaExceededError(f"Cota diária esgotada: {err_str}")
-                        print(f"Modelo {model_name} rate-limited (RPM), aguardando 2s...")
-                        time.sleep(2)
-                        continue
-                    if any(code in err_str for code in ["503", "404", "UNAVAILABLE"]):
-                        print(f"Modelo {model_name} indisponivel, aguardando 2s...")
-                        time.sleep(2)
-                        continue
-                    raise err
-            if last_error:
-                raise last_error
-        finally:
-            if uploaded_file:
-                try:
-                    gemini_client.files.delete(name=uploaded_file.name)
-                except Exception as e:
-                    print(f"Failed to delete uploaded file: {e}")
+        last_error = None
+        for model_name in models_to_try:
+            try:
+                response = gemini_client.models.generate_content(
+                    model=model_name,
+                    contents=[part, prompt],
+                    config={
+                        'response_mime_type': 'application/json',
+                    },
+                )
+                result = parse_extracted_json(response.text)
+                if GEMINI_SLEEP_TIME > 0:
+                    time.sleep(GEMINI_SLEEP_TIME)  # Intervalo de seguranca para respeitar o limite de RPM
+                return result
+            except Exception as err:
+                last_error = err
+                err_str = str(err)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    if "Quota exceeded" in err_str or "free_tier_requests" in err_str or "limit: 500" in err_str:
+                        raise QuotaExceededError(f"Cota diária esgotada: {err_str}")
+                    print(f"Modelo {model_name} rate-limited (RPM), aguardando 2s...")
+                    time.sleep(2)
+                    continue
+                if any(code in err_str for code in ["503", "404", "UNAVAILABLE"]):
+                    print(f"Modelo {model_name} indisponivel, aguardando 2s...")
+                    time.sleep(2)
+                    continue
+                raise err
+        if last_error:
+            raise last_error
+    finally:
+        if uploaded_file:
+            try:
+                gemini_client.files.delete(name=uploaded_file.name)
+            except Exception as e:
+                print(f"Failed to delete uploaded file: {e}")
 
 
 def process_pdf_background(file_path: str, module_name: str, task_id: str):
@@ -188,8 +182,8 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
         contents_list = [{"materia": c.materia, "topico": c.topico} for c in contents]
         contents_json = json.dumps(contents_list, ensure_ascii=False)
         
-        # Dividindo o PDF original em partes menores (15 paginas por chunk)
-        chunk_size = 15
+        # Dividindo o PDF original em partes menores (8 paginas por chunk para evitar truncamento)
+        chunk_size = 8
         chunks = []
         try:
             reader = pypdf.PdfReader(file_path)
@@ -225,7 +219,10 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
         total_extracted_count = task.extracted_questions_count if task and task.extracted_questions_count else 0
         source_filename = task.filename if task and task.filename else os.path.basename(file_path)
 
-        for chunk_path in chunks:
+        start_index = task.processed_chunks if task and task.processed_chunks else 0
+        total_extracted_count = task.extracted_questions_count if task and task.extracted_questions_count else 0
+
+        for chunk_path in chunks[start_index:]:
             try:
                 extracted = extract_content_with_gemini(chunk_path, contents_json)
                 total_extracted_count += len(extracted.questions)
@@ -277,33 +274,23 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
                 print(f"Inseridos {len(extracted.questions)} questoes.")
             except Exception as e:
                 import traceback
+                error_detail = traceback.format_exc()
                 from tenacity import RetryError
                 if isinstance(e, RetryError):
-                    error_detail = str(e.last_attempt.exception())
+                    error_detail = "Falha ao processar chunk: Limite de cota esgotado apos múltiplas retentativas."
                     print(f"Erro processando chunk (RetryError real): {error_detail}")
-                    traceback.print_exception(type(e.last_attempt.exception()), e.last_attempt.exception(), e.last_attempt.exception().__traceback__)
                 else:
-                    error_detail = str(e)
-                    print(f"Erro processando chunk: {e}")
-                    traceback.print_exc()
+                    print(f"Erro processando chunk: {error_detail}")
                 db.rollback()
-                # @spec:AC-006 @spec:AC-008
                 # Propaga o erro para a task para que o frontend exiba a mensagem correta.
                 if task:
                     task.status = "error"
-                    task.error_message = f"Falha ao processar chunk: {error_detail}"
+                    task.error_message = error_detail
                     db.commit()
-                chunk_error = True
                 break  # interrompe o loop ao primeiro erro real apos esgotamento do retry
-            finally:
-                if os.path.exists(chunk_path):
-                    try:
-                        os.remove(chunk_path)
-                    except:
-                        pass
 
         # Somente marca como completed se nenhum chunk falhou
-        if task and not chunk_error:
+        if task and task.status != "error":
             task.status = "completed"
             task.extracted_questions_count = total_extracted_count
             db.commit()
@@ -315,7 +302,19 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
             task.error_message = str(e)
             db.commit()
     finally:
-        # Remove arquivo temporário se necessário, a lógica da rota pode cuidar disso
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        # Remover arquivos temporários de chunks
+        for chunk_path in chunks:
+            if os.path.exists(chunk_path):
+                try:
+                    os.remove(chunk_path)
+                except:
+                    pass
+
+        # Remover o PDF original apenas se a task concluiu com sucesso
+        if task and task.status == "completed":
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
         db.close()

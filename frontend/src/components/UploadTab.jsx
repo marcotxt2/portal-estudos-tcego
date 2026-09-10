@@ -28,9 +28,17 @@ const XIcon = () => (
   </svg>
 );
 
+const RotateCcwIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+    fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+    <path d="M3 3v5h5"/>
+  </svg>
+);
+
 // --- Barra de progresso por arquivo (AC-010) ---
-function UploadCard({ item, onDismiss }) {
-  const { fileName, status, processed_chunks, total_chunks, extracted_questions_count } = item;
+function UploadCard({ item, onDismiss, onRetry }) {
+  const { fileName, status, processed_chunks, total_chunks, extracted_questions_count, taskId } = item;
 
   const percent = status === 'completed'
     ? 100
@@ -73,16 +81,30 @@ function UploadCard({ item, onDismiss }) {
             {fileName}
           </span>
         </div>
-        {isDone && (
-          <button
-            onClick={() => onDismiss(item.localId)}
-            className="cursor-pointer flex-shrink-0"
-            style={{ color: 'var(--color-muted)' }}
-            aria-label="Remover"
-          >
-            <XIcon />
-          </button>
-        )}
+        <div className="flex gap-2 flex-shrink-0 items-center">
+          {status === 'error' && taskId && (
+            <button
+              onClick={() => onRetry(item.localId, taskId)}
+              className="cursor-pointer flex-shrink-0 transition-colors hover:text-blue-500"
+              style={{ color: 'var(--color-muted)' }}
+              title="Tentar Novamente"
+              aria-label="Tentar Novamente"
+            >
+              <RotateCcwIcon />
+            </button>
+          )}
+          {isDone && (
+            <button
+              onClick={() => onDismiss(item.localId)}
+              className="cursor-pointer flex-shrink-0 transition-colors hover:text-red-500"
+              style={{ color: 'var(--color-muted)' }}
+              title="Remover"
+              aria-label="Remover"
+            >
+              <XIcon />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Barra de progresso */}
@@ -110,7 +132,7 @@ function UploadCard({ item, onDismiss }) {
 
 // --- Componente principal (AC-018: apenas apresentacao, estado vem do contexto) ---
 const UploadTab = () => {
-  const { uploadQueue, handleFiles, handleDismiss, clearDone, mapGeminiError } = useUpload();
+  const { uploadQueue, handleFiles, handleDismiss, handleRetryTask, clearDone, mapGeminiError } = useUpload();
 
   const [modules, setModules] = useState([]);
   const [selectedModule, setSelectedModule] = useState('');
@@ -247,7 +269,7 @@ const UploadTab = () => {
             )}
           </div>
           {queueWithMappedErrors.map(item => (
-            <UploadCard key={item.localId} item={item} onDismiss={handleDismiss} />
+            <UploadCard key={item.localId} item={item} onDismiss={handleDismiss} onRetry={handleRetryTask} />
           ))}
         </div>
       )}
