@@ -42,7 +42,7 @@ function App() {
   const loadModules = useCallback(() => {}, []);
 
   const tabs = [
-    { id: 'banco',   label: 'Banco de Questoes' },
+    { id: 'banco',   label: 'Banco de Questões' },
     { id: 'review',  label: 'Revisao Reversa' },
     { id: 'upload',  label: 'Upload PDF' },
     { id: 'pending', label: 'Revisao Pendente' },

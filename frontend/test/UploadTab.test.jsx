@@ -7,6 +7,7 @@ import * as api from '../src/api';
 vi.mock('../src/api', () => ({
   fetchModules: vi.fn(),
   uploadPdf: vi.fn(),
+  uploadExam: vi.fn(),
   fetchUploadStatus: vi.fn(),
   fetchUploads: vi.fn(),
 }));
@@ -247,5 +248,33 @@ describe('UploadTab', () => {
     expect(await screen.findByText('direito_adm.pdf')).toBeInTheDocument();
     expect(screen.getByText('15 questoes')).toBeInTheDocument();
     expect(screen.getByText('Concluido')).toBeInTheDocument();
+  });
+
+  // @spec:AC-071
+  it('@spec:AC-071 exibe campos de prova FCC e submete caderno + gabarito', async () => {
+    api.uploadExam.mockResolvedValue({ task_id: 'task-fcc-1', exam_id: 10 });
+    renderUploadTab();
+
+    const toggle = screen.getByText('Esta e uma prova de concurso (FCC)');
+    fireEvent.click(toggle);
+
+    expect(screen.getByPlaceholderText('Ex: Analista de TI')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Ex: 2024')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Ex: Analista de TI'), { target: { value: 'Analista de TI' } });
+    fireEvent.change(screen.getByPlaceholderText('Ex: 2024'), { target: { value: '2024' } });
+
+    const fileCaderno = new File(['caderno'], 'caderno.pdf', { type: 'application/pdf' });
+    const fileGabarito = new File(['gabarito'], 'gabarito.pdf', { type: 'application/pdf' });
+
+    const inputs = screen.getAllByText(/(Caderno de Prova|Gabarito Oficial)/i);
+    expect(inputs.length).toBeGreaterThan(0);
+
+    const submitBtn = screen.getByText('Enviar Prova + Gabarito');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Preencha todos os campos e selecione os dois PDFs/i)).toBeInTheDocument();
+    });
   });
 });

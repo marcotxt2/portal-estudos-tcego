@@ -190,11 +190,11 @@ const FilterPanel = ({
                 </svg>
               )}
             </span>
-            <span>Nao mostrar questoes ja respondidas</span>
+            <span>Não mostrar questões já respondidas</span>
             <input
               type="checkbox"
               className="sr-only"
-              aria-label="Nao mostrar questoes ja respondidas"
+              aria-label="Não mostrar questões já respondidas"
               checked={naoRespondidas}
               onChange={(e) => setNaoRespondidas(e.target.checked)}
             />

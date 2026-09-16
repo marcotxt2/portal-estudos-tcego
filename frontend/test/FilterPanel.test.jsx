@@ -55,7 +55,8 @@ describe('FilterPanel', () => {
       contentIds: [],
       searchQuery: 'teste',
       apenasErros: true,
-      naoRespondidas: false
+      naoRespondidas: false,
+      source_type: '',
     });
   });
   
@@ -80,7 +81,36 @@ describe('FilterPanel', () => {
       contentIds: [],
       searchQuery: '',
       apenasErros: false,
-      naoRespondidas: false
+      naoRespondidas: false,
+      source_type: '',
+    });
+  });
+
+  // @spec:AC-072
+  it('@spec:AC-072 ativa o filtro Apenas questoes FCC e envia source_type exam', () => {
+    const onFilterChange = vi.fn();
+    const { getByLabelText, getByText } = render(
+      <FilterPanel 
+        materia="" 
+        contentIds={[]} 
+        searchQuery="" 
+        apenasErros={false}
+        naoRespondidas={false}
+        onFilterChange={onFilterChange} 
+        contents={mockContents} 
+      />
+    );
+
+    fireEvent.click(getByLabelText(/Apenas provas FCC/i));
+    fireEvent.click(getByText('Aplicar'));
+
+    expect(onFilterChange).toHaveBeenCalledWith({
+      materia: '',
+      contentIds: [],
+      searchQuery: '',
+      apenasErros: false,
+      naoRespondidas: false,
+      source_type: 'exam',
     });
   });
 });
