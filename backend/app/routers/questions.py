@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, String
+from sqlalchemy import select, String, func
 from typing import List, Optional
 
 from app.database import get_db
@@ -49,11 +49,26 @@ def get_filtered_questions(
         )
         
     if apenas_erros:
-        wrong_answers = db.query(UserProgress.question_id).filter(
-            UserProgress.is_correct == False,
+        # Busca a ultima tentativa (max UserProgress.id) por questao para o usuario logado
+        latest_attempts = db.query(
+            UserProgress.question_id,
+            func.max(UserProgress.id).label("max_id")
+        ).filter(
             UserProgress.user_id == current_user.id
+        ).group_by(
+            UserProgress.question_id
         ).subquery()
-        query = query.filter(Question.id.in_(select(wrong_answers)))
+
+        # Filtra apenas as questoes cuja tentativa mais recente foi errada (is_correct == False)
+        wrong_questions = db.query(UserProgress.question_id).join(
+            latest_attempts,
+            UserProgress.id == latest_attempts.c.max_id
+        ).filter(
+            UserProgress.is_correct == False
+        ).subquery()
+
+        query = query.filter(Question.id.in_(select(wrong_questions)))
+
         
     if nao_respondidas:
         answered = db.query(UserProgress.question_id).filter(

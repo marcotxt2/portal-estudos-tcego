@@ -236,4 +236,79 @@ describe('BancoQuestoes - Navegacao Continua', () => {
     fireEvent.click(strikeBtnA);
     expect(optionBtnA.className).not.toContain('line-through');
   });
+
+  // @spec:AC-067
+  it('@spec:AC-067 reseta automatico o estado de resposta ao aplicar filtro de questoes erradas', async () => {
+    // Simula resposta salva previamente no localStorage
+    localStorage.setItem('banco_questoes_answers', JSON.stringify({
+      1: { selectedOption: 'B', showResult: true }
+    }));
+
+    // Simula API retornando questao errada
+    api.fetchFilteredQuestions.mockResolvedValue([mockQuestions[0]]);
+
+    render(<BancoQuestoes />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Enunciado Questao 1')).toBeInTheDocument();
+    });
+
+    // Aplica o filtro de apenas erros
+    const checkboxErros = screen.getByLabelText(/Apenas questoes que eu errei/i);
+    fireEvent.click(checkboxErros);
+    fireEvent.click(screen.getByText('Aplicar'));
+
+    await waitFor(() => {
+      // Estado deve ser resetado: gabarito/explicacao nao sao exibidos e botao Confirmar esta desabilitado
+      expect(screen.queryByText('Explicacao detalhada Q1')).not.toBeInTheDocument();
+      const confirmBtn = screen.getByText('Confirmar');
+      expect(confirmBtn).toBeDisabled();
+    });
+
+    // Verifica que localStorage de respostas foi limpo para essa questao
+    const saved = JSON.parse(localStorage.getItem('banco_questoes_answers') || '{}');
+    expect(saved[1]).toBeUndefined();
+  });
+
+  // @spec:AC-070
+  it('@spec:AC-070 preserva respostas submetidas durante a navegacao na mesma sessao com filtro de erros ativo', async () => {
+    api.fetchFilteredQuestions.mockResolvedValue(mockQuestions);
+
+    render(<BancoQuestoes />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Enunciado Questao 1')).toBeInTheDocument();
+    });
+
+    // Ativa filtro de apenas erros
+    fireEvent.click(screen.getByLabelText(/Apenas questoes que eu errei/i));
+    fireEvent.click(screen.getByText('Aplicar'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Enunciado Questao 1')).toBeInTheDocument();
+    });
+
+    // Responde a questao 1 na sessao atual
+    fireEvent.click(screen.getByText('Opcao A1'));
+    fireEvent.click(screen.getByText('Confirmar'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Explicacao detalhada Q1')).toBeInTheDocument();
+    });
+
+    // Navega para Q2 e depois retorna para Q1
+    fireEvent.click(screen.getByText('Proxima >'));
+    await waitFor(() => {
+      expect(screen.getByText('Enunciado Questao 2')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('< Anterior'));
+
+    // Resposta fornecida durante a sessao deve permanecer visivel
+    await waitFor(() => {
+      expect(screen.getByText('Enunciado Questao 1')).toBeInTheDocument();
+      expect(screen.getByText('Explicacao detalhada Q1')).toBeInTheDocument();
+    });
+  });
 });
+

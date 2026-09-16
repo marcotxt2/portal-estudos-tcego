@@ -1,11 +1,10 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import app.models
+from app.models import User, Question, UserProgress
 from app.main import app
 from app.database import get_db, Base
 from app.auth import get_current_user
-from app.models import User
 
 from sqlalchemy.pool import StaticPool
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -74,3 +73,50 @@ def test_get_review_with_filters():
     response = client.get("/api/session/review?materia=Mat&content_ids=1,2")
     assert response.status_code == 200
     assert "questions" in response.json()
+
+# @spec:AC-068
+def test_apenas_erros_considers_latest_attempt():
+    db = TestingSessionLocal()
+    # Criar questao de teste
+    q = Question(
+        statement="Questao Teste AC-068",
+        options={"A": "Opcao A", "B": "Opcao B"},
+        correct_option="A"
+    )
+    db.add(q)
+    db.commit()
+    db.refresh(q)
+
+    # 1a tentativa: Resposta incorreta
+    p1 = UserProgress(
+        user_id=1,
+        question_id=q.id,
+        chosen_option="B",
+        is_correct=False
+    )
+    db.add(p1)
+    db.commit()
+
+    # Deve retornar a questao no filtro apenas_erros
+    res1 = client.get("/api/questions/?apenas_erros=true")
+    assert res1.status_code == 200
+    q_ids = [item["id"] for item in res1.json()]
+    assert q.id in q_ids
+
+    # 2a tentativa: Resposta correta (tentativa mais recente)
+    p2 = UserProgress(
+        user_id=1,
+        question_id=q.id,
+        chosen_option="A",
+        is_correct=True
+    )
+    db.add(p2)
+    db.commit()
+
+    # Nao deve mais retornar a questao no filtro apenas_erros
+    res2 = client.get("/api/questions/?apenas_erros=true")
+    assert res2.status_code == 200
+    q_ids_updated = [item["id"] for item in res2.json()]
+    assert q.id not in q_ids_updated
+    db.close()
+

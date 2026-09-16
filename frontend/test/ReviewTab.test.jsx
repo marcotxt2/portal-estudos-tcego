@@ -68,4 +68,31 @@ describe('ReviewTab', () => {
     // Explanation should be hidden again
     expect(screen.queryByText('This is the explanation for Q1.')).toBeNull();
   });
+
+  // @spec:AC-069
+  it('@spec:AC-069 exibe integrasteis historico de resposta, gabarito e explicacao sem resetar', async () => {
+    api.fetchReview.mockResolvedValue({
+      review_items: [
+        {
+          question: {
+            id: 1,
+            statement: 'Questao de Revisao Reversa',
+            options: { A: 'Opcao A', B: 'Opcao B' },
+            correct_option: 'A',
+            explanation: 'Justificativa teorica',
+          },
+          chosen_option: 'B',
+        },
+      ],
+    });
+
+    await act(async () => {
+      render(<ReviewTab />);
+    });
+
+    // Verifica que exibe resposta anterior e gabarito sem estado limpo
+    expect(screen.getByText(/Sua resposta \(B\):/i)).toBeInTheDocument();
+    expect(screen.getByText(/Gabarito \(A\):/i)).toBeInTheDocument();
+  });
 });
+

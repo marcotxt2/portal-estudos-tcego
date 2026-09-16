@@ -76,6 +76,16 @@ const BancoQuestoes = () => {
     try {
       const data = await fetchFilteredQuestions(params);
       setQuestions(data);
+      const isApenasErros = Boolean(params.apenasErros || params.apenas_erros);
+      if (isApenasErros && data && data.length > 0) {
+        setAnswers(prev => {
+          const next = { ...prev };
+          data.forEach(q => {
+            delete next[q.id];
+          });
+          return next;
+        });
+      }
       if (data && data.length > 0) {
         const clampedIndex = Math.min(Math.max(0, targetIndex), data.length - 1);
         setCurrentIndex(clampedIndex);
