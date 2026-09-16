@@ -21,6 +21,22 @@ def upgrade_db(engine_override=None):
             conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS is_ai_generated BOOLEAN DEFAULT FALSE NOT NULL;"))
             conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS source_file VARCHAR(255);"))
             conn.execute(text("ALTER TABLE upload_tasks ADD COLUMN IF NOT EXISTS extracted_questions_count INTEGER DEFAULT 0 NOT NULL;"))
+            # FCC exam fields
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS exams (
+                    id SERIAL PRIMARY KEY,
+                    banca VARCHAR(50) NOT NULL DEFAULT 'FCC',
+                    cargo VARCHAR(255) NOT NULL,
+                    ano INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+            conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS source_type VARCHAR(20) NOT NULL DEFAULT 'slide';"))
+            conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS exam_id INTEGER REFERENCES exams(id) ON DELETE SET NULL;"))
+            conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_number INTEGER;"))
+            conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS needs_review BOOLEAN NOT NULL DEFAULT FALSE;"))
+            conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS suggested_materia VARCHAR(255);"))
+            conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS suggested_topico VARCHAR(255);"))
             conn.commit()
         else:
             from sqlalchemy import inspect

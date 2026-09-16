@@ -1,9 +1,10 @@
-// @spec:AC-011 @spec:AC-009 @spec:AC-018 @spec:AC-019 @spec:AC-020 @spec:AC-061 @spec:AC-062 @spec:AC-063
+// @spec:AC-011 @spec:AC-009 @spec:AC-018 @spec:AC-019 @spec:AC-020 @spec:AC-061 @spec:AC-062 @spec:AC-063 @spec:AC-076
 import { useState, useCallback } from 'react';
 import Header from './components/Header';
 import ReviewTab from './components/ReviewTab';
 import UploadTab from './components/UploadTab';
 import BancoQuestoes from './components/BancoQuestoes';
+import ReviewPendingTab from './components/ReviewPendingTab';
 import { UploadProvider } from './context/UploadContext';
 import { QuestionsProvider } from './context/QuestionsContext';
 import { TimerProvider } from './context/TimerContext';
@@ -15,7 +16,7 @@ const STORAGE_KEY_TAB = 'portal_active_tab';
 const loadSavedTab = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY_TAB);
-    if (saved && ['banco', 'review', 'upload'].includes(saved)) {
+    if (saved && ['banco', 'review', 'upload', 'pending'].includes(saved)) {
       return saved;
     }
     return 'banco';
@@ -37,13 +38,14 @@ function App() {
     }
   };
 
-  // AC-011: loadModules mantido apenas para o UploadProvider (noop se não usar mais, ou pode manter vazio)
+  // AC-011: loadModules mantido apenas para o UploadProvider
   const loadModules = useCallback(() => {}, []);
 
   const tabs = [
-    { id: 'banco',     label: 'Banco de Questões' },
-    { id: 'review',    label: 'Revisao Reversa' },
-    { id: 'upload',    label: 'Upload PDF' },
+    { id: 'banco',   label: 'Banco de Questoes' },
+    { id: 'review',  label: 'Revisao Reversa' },
+    { id: 'upload',  label: 'Upload PDF' },
+    { id: 'pending', label: 'Revisao Pendente' },
   ];
 
   if (loading) return <div className="min-h-screen bg-[var(--color-bg)]"></div>;
@@ -84,9 +86,10 @@ function App() {
 
                 {/* Conteudo da tab */}
                 <div>
-                  {activeTab === 'banco'     && <BancoQuestoes />}
-                  {activeTab === 'review'    && <ReviewTab />}
-                  {activeTab === 'upload'    && <UploadTab />}
+                  {activeTab === 'banco'   && <BancoQuestoes />}
+                  {activeTab === 'review'  && <ReviewTab />}
+                  {activeTab === 'upload'  && <UploadTab />}
+                  {activeTab === 'pending' && <ReviewPendingTab />}
                 </div>
               </div>
             </main>

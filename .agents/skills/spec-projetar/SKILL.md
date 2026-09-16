@@ -31,8 +31,10 @@ Ao ser invocada (ex: `/spec-projetar [nome da feature]`):
    ```
    *As tarefas não podem deixar NENHUM AC-xxx sem um arquivo responsável.*
 
-4. **Trabalhe com Artifacts Temporários**:
-   - Para exibição visual, crie o artefato temporário `implementation_plan.md` listando o seu plano de execução, e crie o artefato de tarefas nativo (`task.md`) espelhando as `T-xxx`. O usuário aprova por aqui.
+4. **Trabalhe com Artifacts Temporários e Parada Obrigatória**:
+   - Para exibição visual, crie o artefato temporário `implementation_plan.md` listando o seu plano de execução, e crie o artefato de tarefas nativo (`task.md`) espelhando as `T-xxx`.
+   - **NÃO PROSSIGA AUTOMATICAMENTE PARA A EXECUÇÃO**: A skill `/spec-projetar` deve ser finalizada imediatamente após criar/atualizar os arquivos de planejamento (`plano-execucao.md` e `tasks.md`). Quem deve executar a implementação é exclusivamente a skill `/spec-executar`.
+   - Ao finalizar, informe ao usuário que o projeto técnico está pronto e solicite que ele invoque `/spec-executar [nome da feature]` para iniciar a execução.
 
 5. **Regra de Estilo**:
    - Apresente recomendações de paralelismo baseadas na separação dos `Arquivos:` do `tasks.md`.

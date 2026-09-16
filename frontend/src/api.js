@@ -112,6 +112,8 @@ export const fetchFilteredQuestions = async (params = {}) => {
   
   const naoRespondidas = params.nao_respondidas !== undefined ? params.nao_respondidas : params.naoRespondidas;
   if (naoRespondidas) query.append('nao_respondidas', 'true');
+
+  if (params.source_type) query.append('source_type', params.source_type);
   
   if (params.limit) query.append('limit', params.limit);
   
@@ -131,5 +133,66 @@ export const fetchReview = async (params = {}) => {
   
   const res = await fetchWithAuth(`${API_URL}/session/review?${query.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch review session');
+  return res.json();
+};
+
+// --- Exams (Provas FCC) ---
+
+export const uploadExam = async (banca, cargo, ano, caderno, gabarito) => {
+  const formData = new FormData();
+  formData.append('banca', banca);
+  formData.append('cargo', cargo);
+  formData.append('ano', ano);
+  formData.append('caderno', caderno);
+  formData.append('gabarito', gabarito);
+
+  const res = await fetchWithAuth(`${API_URL}/exams/upload/`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Failed to upload exam');
+  return res.json();
+};
+
+export const fetchExams = async () => {
+  const res = await fetchWithAuth(`${API_URL}/exams/`);
+  if (!res.ok) throw new Error('Failed to fetch exams');
+  return res.json();
+};
+
+export const fetchPendingReview = async (skip = 0, limit = 50) => {
+  const res = await fetchWithAuth(`${API_URL}/exams/pending-review/?skip=${skip}&limit=${limit}`);
+  if (!res.ok) throw new Error('Failed to fetch pending review');
+  return res.json();
+};
+
+export const fetchPendingReviewCount = async () => {
+  try {
+    const res = await fetchWithAuth(`${API_URL}/exams/pending-review/count`);
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data.count || 0;
+  } catch {
+    return 0;
+  }
+};
+
+export const classifyPendingQuestion = async (id, materia, topico) => {
+  const res = await fetchWithAuth(`${API_URL}/exams/pending-review/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ materia, topico, discard: false }),
+  });
+  if (!res.ok) throw new Error('Failed to classify question');
+  return res.json();
+};
+
+export const discardPendingQuestion = async (id) => {
+  const res = await fetchWithAuth(`${API_URL}/exams/pending-review/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ discard: true }),
+  });
+  if (!res.ok) throw new Error('Failed to discard question');
   return res.json();
 };

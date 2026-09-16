@@ -31,7 +31,7 @@ Ao ser invocada (ex: `/spec-especificar [nome da feature]`):
 
 2. **Hard Stop (O Bloqueio de Fase)**:
    A feature só pode ir para o Projeto (`/spec-projetar`) se estiver `pronta`. 
-   Apresente a spec gerada e diga ao usuário: "A feature está em rascunho. Para avançarmos, confirme as Suposições e responda às Perguntas em Aberto".
+   Apresente a spec gerada e diga ao usuário: "A feature está em rascunho. Para avançarmos, confirme as Suposições e responda às Perguntas em Aberto". Recomende o uso do comando `/grill-me` para realizar a entrevista e responder às dúvidas.
 
 3. **Alimentando o Arquivo (O Destravamento)**:
    Quando o usuário sanar as dúvidas (`Q-xxx` respondida, `ASM-xxx` confirmada/invalidada) ou validar que os ACs estão corretos, execute **obrigatoriamente** os passos abaixo antes de marcar `status: pronta`:
@@ -51,3 +51,4 @@ Ao ser invocada (ex: `/spec-especificar [nome da feature]`):
    - Fale por extenso: "o critério de aceite (AC-003)".
    - Estritamente sem emojis.
    - Nunca deixe decisões importantes apenas como anotações nas Q-xxx. O `spec.md` é lido pelo implementador diretamente nos ACs — se a decisão não está lá, ela não existe.
+   - Ao finalizar a apresentação da especificação em rascunho, indique explicitamente o comando `/grill-me` para conduzir a entrevista de alinhamento e sanar as perguntas em aberto.

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useUpload } from '../context/UploadContext';
-import { fetchModules, fetchUploads } from '../api';
+import { fetchModules, fetchUploads, uploadExam } from '../api';
 
 // --- Icones SVG Lucide ---
 const UploadIcon = () => (
@@ -140,6 +140,40 @@ const UploadTab = () => {
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // --- Estado do toggle FCC (AC-071) ---
+  const [isExamMode, setIsExamMode] = useState(false);
+  const [examBanca, setExamBanca] = useState('FCC');
+  const [examCargo, setExamCargo] = useState('');
+  const [examAno, setExamAno] = useState('');
+  const [examCaderno, setExamCaderno] = useState(null);
+  const [examGabarito, setExamGabarito] = useState(null);
+  const [examSubmitting, setExamSubmitting] = useState(false);
+  const [examError, setExamError] = useState('');
+  const [examSuccess, setExamSuccess] = useState('');
+
+  const handleExamSubmit = async () => {
+    setExamError('');
+    setExamSuccess('');
+    if (!examCargo.trim() || !examAno || !examCaderno || !examGabarito) {
+      setExamError('Preencha todos os campos e selecione os dois PDFs.');
+      return;
+    }
+    setExamSubmitting(true);
+    try {
+      const result = await uploadExam(examBanca, examCargo.trim(), parseInt(examAno), examCaderno, examGabarito);
+      setExamSuccess(`Upload iniciado (task: ${result.task_id}). Acompanhe no historico abaixo.`);
+      setExamCaderno(null);
+      setExamGabarito(null);
+      setExamCargo('');
+      setExamAno('');
+      loadHistory();
+    } catch (e) {
+      setExamError('Erro ao enviar prova. Tente novamente.');
+    } finally {
+      setExamSubmitting(false);
+    }
+  };
+
   const loadHistory = useCallback(() => {
     setLoadingHistory(true);
     fetchUploads()
@@ -193,63 +227,157 @@ const UploadTab = () => {
         </p>
       </div>
 
-      {/* Selecao de materia */}
-      <div>
-        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-muted)' }}>
-          Materia
-        </label>
-        <select
-          className="w-full rounded-md px-3 py-2 text-sm outline-none cursor-pointer"
-          style={{
-            backgroundColor: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-text)',
-          }}
-          value={selectedModule}
-          onChange={(e) => setSelectedModule(e.target.value)}
+      {/* Toggle: Prova de Concurso FCC (AC-071) */}
+      <div
+        className="flex items-center gap-3 p-3 rounded-lg cursor-pointer select-none"
+        style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        onClick={() => { setIsExamMode(v => !v); setExamError(''); setExamSuccess(''); }}
+      >
+        <div
+          className="relative w-9 h-5 rounded-full transition-colors duration-200 flex-shrink-0"
+          style={{ backgroundColor: isExamMode ? '#2563eb' : 'var(--color-border)' }}
         >
-          <option value="">Selecione uma materia</option>
-          {modules.map(m => (
-            <option key={m.id} value={m.name}>{m.name}</option>
-          ))}
-        </select>
+          <span
+            className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
+            style={{ transform: isExamMode ? 'translateX(16px)' : 'translateX(0)' }}
+          />
+        </div>
+        <span className="text-sm" style={{ color: 'var(--color-text)' }}>
+          Esta e uma prova de concurso (FCC)
+        </span>
       </div>
 
-      {/* Dropzone (AC-014) */}
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className="rounded-lg border-2 border-dashed transition-colors duration-150 cursor-pointer"
-        style={{
-          borderColor: isDragOver ? '#2563eb' : 'var(--color-border)',
-          backgroundColor: isDragOver ? 'rgba(37,99,235,0.05)' : 'var(--color-surface)',
-          padding: '2rem 1.5rem',
-        }}
-        onClick={() => document.getElementById('pdf-input').click()}
-      >
-        <div className="flex flex-col items-center gap-3 pointer-events-none">
-          <span style={{ color: isDragOver ? '#2563eb' : 'var(--color-muted)' }}>
-            <UploadIcon />
-          </span>
-          <div className="text-center">
-            <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>
-              {isDragOver ? 'Solte os arquivos aqui' : 'Arraste PDFs ou clique para selecionar'}
-            </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
-              Multiplos arquivos suportados, sem limite de quantidade
-            </p>
+      {/* Formulario FCC expandido */}
+      {isExamMode ? (
+        <div className="space-y-4 rounded-lg border p-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Banca</label>
+              <input
+                type="text"
+                className="w-full rounded-md px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+                value={examBanca}
+                onChange={e => setExamBanca(e.target.value)}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Cargo</label>
+              <input
+                type="text"
+                placeholder="Ex: Analista de TI"
+                className="w-full rounded-md px-3 py-2 text-sm outline-none"
+                style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+                value={examCargo}
+                onChange={e => setExamCargo(e.target.value)}
+              />
+            </div>
           </div>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Ano</label>
+            <input
+              type="number"
+              placeholder="Ex: 2024"
+              className="w-32 rounded-md px-3 py-2 text-sm outline-none"
+              style={{ backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+              value={examAno}
+              onChange={e => setExamAno(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Caderno de Prova (PDF)</label>
+              <input
+                type="file" accept="application/pdf"
+                className="block w-full text-xs cursor-pointer"
+                style={{ color: 'var(--color-muted)' }}
+                onChange={e => setExamCaderno(e.target.files?.[0] || null)}
+              />
+              {examCaderno && <p className="text-xs mt-1 truncate" style={{ color: 'var(--color-muted)' }}>{examCaderno.name}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-muted)' }}>Gabarito Oficial (PDF)</label>
+              <input
+                type="file" accept="application/pdf"
+                className="block w-full text-xs cursor-pointer"
+                style={{ color: 'var(--color-muted)' }}
+                onChange={e => setExamGabarito(e.target.files?.[0] || null)}
+              />
+              {examGabarito && <p className="text-xs mt-1 truncate" style={{ color: 'var(--color-muted)' }}>{examGabarito.name}</p>}
+            </div>
+          </div>
+          {examError && <p className="text-xs" style={{ color: '#f87171' }}>{examError}</p>}
+          {examSuccess && <p className="text-xs" style={{ color: '#4ade80' }}>{examSuccess}</p>}
+          <button
+            onClick={handleExamSubmit}
+            disabled={examSubmitting}
+            className="w-full py-2 rounded-md text-sm font-medium transition-opacity cursor-pointer"
+            style={{ backgroundColor: '#2563eb', color: '#fff', opacity: examSubmitting ? 0.6 : 1 }}
+          >
+            {examSubmitting ? 'Enviando...' : 'Enviar Prova + Gabarito'}
+          </button>
         </div>
-        <input
-          id="pdf-input"
-          type="file"
-          accept="application/pdf"
-          multiple
-          className="hidden"
-          onChange={handleInputChange}
-        />
-      </div>
+      ) : (
+        <>
+          {/* Selecao de materia (modo slide normal) */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-muted)' }}>
+              Materia
+            </label>
+            <select
+              className="w-full rounded-md px-3 py-2 text-sm outline-none cursor-pointer"
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text)',
+              }}
+              value={selectedModule}
+              onChange={(e) => setSelectedModule(e.target.value)}
+            >
+              <option value="">Selecione uma materia</option>
+              {modules.map(m => (
+                <option key={m.id} value={m.name}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dropzone (AC-014) */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className="rounded-lg border-2 border-dashed transition-colors duration-150 cursor-pointer"
+            style={{
+              borderColor: isDragOver ? '#2563eb' : 'var(--color-border)',
+              backgroundColor: isDragOver ? 'rgba(37,99,235,0.05)' : 'var(--color-surface)',
+              padding: '2rem 1.5rem',
+            }}
+            onClick={() => document.getElementById('pdf-input').click()}
+          >
+            <div className="flex flex-col items-center gap-3 pointer-events-none">
+              <span style={{ color: isDragOver ? '#2563eb' : 'var(--color-muted)' }}>
+                <UploadIcon />
+              </span>
+              <div className="text-center">
+                <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>
+                  {isDragOver ? 'Solte os arquivos aqui' : 'Arraste PDFs ou clique para selecionar'}
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--color-muted)' }}>
+                  Multiplos arquivos suportados, sem limite de quantidade
+                </p>
+              </div>
+            </div>
+            <input
+              id="pdf-input"
+              type="file"
+              accept="application/pdf"
+              multiple
+              className="hidden"
+              onChange={handleInputChange}
+            />
+          </div>
+        </>
+      )}
 
       {/* Fila de uploads (AC-010, AC-013) */}
       {queueWithMappedErrors.length > 0 && (

@@ -2,6 +2,15 @@ from sqlalchemy import Column, Integer, String, Text, ForeignKey, TIMESTAMP, Boo
 from sqlalchemy.sql import func
 from app.database import Base
 
+class Exam(Base):
+    __tablename__ = "exams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    banca = Column(String(50), nullable=False, default="FCC")
+    cargo = Column(String(255), nullable=False)
+    ano = Column(Integer, nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
 class User(Base):
     __tablename__ = "users"
 
@@ -40,6 +49,12 @@ class Question(Base):
     explanation = Column(Text, nullable=True)
     is_ai_generated = Column(Boolean, nullable=False, default=False, server_default="false")
     source_file = Column(String(255), nullable=True)
+    source_type = Column(String(20), nullable=False, default="slide", server_default="slide")
+    exam_id = Column(Integer, ForeignKey("exams.id", ondelete="SET NULL"), nullable=True)
+    question_number = Column(Integer, nullable=True)
+    needs_review = Column(Boolean, nullable=False, default=False, server_default="false")
+    suggested_materia = Column(String(255), nullable=True)
+    suggested_topico = Column(String(255), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
 
 class UserProgress(Base):

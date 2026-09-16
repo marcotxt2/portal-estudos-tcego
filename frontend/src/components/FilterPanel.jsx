@@ -8,6 +8,7 @@ const FilterPanel = ({
   searchQuery: initialSearchQuery = '',
   apenasErros: initialApenasErros = false,
   naoRespondidas: initialNaoRespondidas = false,
+  sourceType: initialSourceType = '',
   onFilterChange,
   contents = EMPTY_ARRAY
 }) => {
@@ -16,6 +17,7 @@ const FilterPanel = ({
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [apenasErros, setApenasErros] = useState(initialApenasErros);
   const [naoRespondidas, setNaoRespondidas] = useState(initialNaoRespondidas);
+  const [apenasProvasFCC, setApenasProvasFCC] = useState(initialSourceType === 'exam');
 
   useEffect(() => {
     setMateria(initialMateria);
@@ -23,7 +25,8 @@ const FilterPanel = ({
     setSearchQuery(initialSearchQuery);
     setApenasErros(initialApenasErros);
     setNaoRespondidas(initialNaoRespondidas);
-  }, [initialMateria, initialContentIds, initialSearchQuery, initialApenasErros, initialNaoRespondidas]);
+    setApenasProvasFCC(initialSourceType === 'exam');
+  }, [initialMateria, initialContentIds, initialSearchQuery, initialApenasErros, initialNaoRespondidas, initialSourceType]);
 
   // Deriva opcoes do backend
   const materiasDisponiveis = [...new Set(contents.map(c => c.materia))].sort();
@@ -35,7 +38,8 @@ const FilterPanel = ({
       contentIds,
       searchQuery,
       apenasErros,
-      naoRespondidas
+      naoRespondidas,
+      source_type: apenasProvasFCC ? 'exam' : '',
     });
   };
 
@@ -45,12 +49,14 @@ const FilterPanel = ({
     setSearchQuery('');
     setApenasErros(false);
     setNaoRespondidas(false);
+    setApenasProvasFCC(false);
     onFilterChange({
       materia: '',
       contentIds: [],
       searchQuery: '',
       apenasErros: false,
-      naoRespondidas: false
+      naoRespondidas: false,
+      source_type: '',
     });
   };
 
@@ -184,13 +190,45 @@ const FilterPanel = ({
                 </svg>
               )}
             </span>
-            <span>Não mostrar questões já respondidas</span>
+            <span>Nao mostrar questoes ja respondidas</span>
             <input
               type="checkbox"
               className="sr-only"
-              aria-label="Não mostrar questões já respondidas"
+              aria-label="Nao mostrar questoes ja respondidas"
               checked={naoRespondidas}
               onChange={(e) => setNaoRespondidas(e.target.checked)}
+            />
+          </label>
+
+          {/* Toggle: Apenas Provas FCC (AC-072) */}
+          <label
+            className="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all duration-150 select-none"
+            style={{
+              borderColor: apenasProvasFCC ? '#f59e0b' : 'var(--color-border)',
+              backgroundColor: apenasProvasFCC ? 'rgba(245, 158, 11, 0.12)' : 'var(--color-bg)',
+              color: apenasProvasFCC ? '#f59e0b' : 'var(--color-text)',
+            }}
+          >
+            <span
+              className="w-4 h-4 rounded flex items-center justify-center border transition-colors"
+              style={{
+                borderColor: apenasProvasFCC ? '#f59e0b' : 'var(--color-muted)',
+                backgroundColor: apenasProvasFCC ? '#f59e0b' : 'transparent',
+              }}
+            >
+              {apenasProvasFCC && (
+                <svg className="w-3 h-3 text-white" viewBox="0 0 16 16" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clipRule="evenodd" />
+                </svg>
+              )}
+            </span>
+            <span>Apenas provas FCC</span>
+            <input
+              type="checkbox"
+              className="sr-only"
+              aria-label="Apenas provas FCC"
+              checked={apenasProvasFCC}
+              onChange={(e) => setApenasProvasFCC(e.target.checked)}
             />
           </label>
         </div>

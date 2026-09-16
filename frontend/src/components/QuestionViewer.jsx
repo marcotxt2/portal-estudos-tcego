@@ -117,7 +117,35 @@ const QuestionViewer = ({
       }}>
         {/* Badges / Metadados */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          {question.source_file && (
+          {/* Badge FCC (AC-073) */}
+          {question.source_type === 'exam' && (
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
+              style={{
+                backgroundColor: 'rgba(245,158,11,0.1)',
+                borderColor: 'rgba(245,158,11,0.3)',
+                color: '#fbbf24',
+              }}
+              title="Questao extraida de prova de concurso"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="9" y1="12" x2="15" y2="12"/>
+                <line x1="9" y1="16" x2="13" y2="16"/>
+              </svg>
+              <span>
+                {[
+                  'FCC',
+                  question.exam?.cargo,
+                  question.exam?.ano,
+                  question.question_number ? `Q.${question.question_number}` : null,
+                ].filter(Boolean).join(' | ')}
+              </span>
+            </div>
+          )}
+
+          {question.source_file && question.source_type !== 'exam' && (
             <div
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
               style={{

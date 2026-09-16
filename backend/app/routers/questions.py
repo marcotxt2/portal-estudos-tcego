@@ -21,16 +21,23 @@ def get_filtered_questions(
     content_ids: Optional[str] = None,  # comma-separated
     q: Optional[str] = None,
     source_file: Optional[str] = None,
+    source_type: Optional[str] = None,
     apenas_erros: bool = False,
     nao_respondidas: bool = False,
     limit: Optional[int] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     query = db.query(Question)
-    
+
+    # Ocultar questoes pendentes de revisao do banco principal
+    query = query.filter(Question.needs_review == False)
+
     if source_file:
         query = query.filter(Question.source_file == source_file)
+
+    if source_type:
+        query = query.filter(Question.source_type == source_type)
     
     if materia:
         query = query.join(Content, Question.content_id == Content.id)

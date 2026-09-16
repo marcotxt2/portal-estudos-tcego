@@ -29,6 +29,10 @@ class QuestionBase(BaseModel):
     explanation: Optional[str] = None
     is_ai_generated: bool = False
     source_file: Optional[str] = None
+    source_type: str = "slide"
+    exam_id: Optional[int] = None
+    question_number: Optional[int] = None
+    needs_review: bool = False
 
 class QuestionResponse(QuestionBase):
     id: int
@@ -73,3 +77,29 @@ class UserResponse(BaseModel):
     username: str
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class ExamCreate(BaseModel):
+    banca: str = "FCC"
+    cargo: str
+    ano: int
+
+class ExamResponse(ExamCreate):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class PendingReviewResponse(BaseModel):
+    id: int
+    statement: str
+    options: Dict[str, str]
+    correct_option: Optional[str] = None
+    suggested_materia: Optional[str] = None
+    suggested_topico: Optional[str] = None
+    question_number: Optional[int] = None
+    exam_id: Optional[int] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ReviewClassifyRequest(BaseModel):
+    materia: Optional[str] = None
+    topico: Optional[str] = None
+    discard: bool = False

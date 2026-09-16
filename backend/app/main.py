@@ -43,13 +43,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.routers import session, answers, modules, questions, auth
+from app.routers import session, answers, modules, questions, auth, exams
 
 app.include_router(auth.router)
 app.include_router(session.router, prefix="/api")
 app.include_router(answers.router, prefix="/api")
 app.include_router(modules.router, prefix="/api")
 app.include_router(questions.router, prefix="/api")
+app.include_router(exams.router, prefix="/api")
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
