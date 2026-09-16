@@ -19,6 +19,16 @@ class ModuleResponse(ModuleBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ExamCreate(BaseModel):
+    banca: str = "FCC"
+    cargo: str
+    ano: int
+
+class ExamResponse(ExamCreate):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
 class QuestionBase(BaseModel):
     module_id: Optional[int] = None
     content_id: Optional[int] = None
@@ -33,6 +43,7 @@ class QuestionBase(BaseModel):
     exam_id: Optional[int] = None
     question_number: Optional[int] = None
     needs_review: bool = False
+    exam: Optional[ExamResponse] = None
 
 class QuestionResponse(QuestionBase):
     id: int
@@ -75,16 +86,6 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     id: int
     username: str
-    created_at: datetime
-    model_config = ConfigDict(from_attributes=True)
-
-class ExamCreate(BaseModel):
-    banca: str = "FCC"
-    cargo: str
-    ano: int
-
-class ExamResponse(ExamCreate):
-    id: int
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 

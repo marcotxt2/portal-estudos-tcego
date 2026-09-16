@@ -136,10 +136,9 @@ const QuestionViewer = ({
               </svg>
               <span>
                 {[
-                  'FCC',
+                  question.exam?.banca || 'FCC',
                   question.exam?.cargo,
                   question.exam?.ano,
-                  question.question_number ? `Q.${question.question_number}` : null,
                 ].filter(Boolean).join(' | ')}
               </span>
             </div>

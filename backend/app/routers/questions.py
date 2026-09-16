@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select, String, func
 from typing import List, Optional
 
@@ -28,7 +28,7 @@ def get_filtered_questions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = db.query(Question)
+    query = db.query(Question).options(joinedload(Question.exam))
 
     # Ocultar questoes pendentes de revisao do banco principal
     query = query.filter(Question.needs_review == False)

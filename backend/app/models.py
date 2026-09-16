@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, TIMESTAMP, Boolean, JSON, UniqueConstraint
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -56,6 +57,8 @@ class Question(Base):
     suggested_materia = Column(String(255), nullable=True)
     suggested_topico = Column(String(255), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
+
+    exam = relationship("Exam")
 
 class UserProgress(Base):
     __tablename__ = "user_progress"

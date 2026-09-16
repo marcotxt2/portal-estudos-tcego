@@ -1,4 +1,4 @@
-﻿// @spec:AC-073
+// @spec:AC-073
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import QuestionViewer from "../src/components/QuestionViewer";
@@ -33,6 +33,6 @@ describe("QuestionViewer", () => {
       />
     );
 
-    expect(screen.getByText("FCC | Analista TI | 2024 | Q.15")).toBeInTheDocument();
+    expect(screen.getByText("FCC | Analista TI | 2024")).toBeInTheDocument();
   });
 });
