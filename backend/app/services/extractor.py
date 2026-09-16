@@ -215,12 +215,8 @@ def process_pdf_background(file_path: str, module_name: str, task_id: str):
             task.total_chunks = len(chunks)
             db.commit()
 
-        chunk_error = False
-        total_extracted_count = task.extracted_questions_count if task and task.extracted_questions_count else 0
-        source_filename = task.filename if task and task.filename else os.path.basename(file_path)
-
-        start_index = task.processed_chunks if task and task.processed_chunks else 0
-        total_extracted_count = task.extracted_questions_count if task and task.extracted_questions_count else 0
+        start_index = task.processed_chunks if (task and isinstance(task.processed_chunks, int)) else 0
+        total_extracted_count = task.extracted_questions_count if (task and isinstance(task.extracted_questions_count, int)) else 0
 
         for chunk_path in chunks[start_index:]:
             try:

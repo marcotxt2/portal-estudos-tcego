@@ -29,6 +29,7 @@ class ExamQuestionExtracted(BaseModel):
     question_number: int
     statement: str
     options: dict[str, str]
+    correct_option: str | None = None
     explanation: str | None = None
     materia: str | None = None
     topico: str | None = None
@@ -98,24 +99,54 @@ def _get_client() -> genai.Client:
 
 
 @retry(wait=wait_random_exponential(multiplier=3, max=65), stop=stop_after_attempt(5))
-def extract_gabarito(gabarito_path: str) -> dict[int, str]:
+def extract_gabarito(gabarito_path: str, cargo: str | None = None) -> dict[int, str]:
     client = _get_client()
     prompt = (
-        "Analise o PDF de gabarito em anexo e retorne EXCLUSIVAMENTE um objeto JSON "
+        "Analise o PDF de gabarito em anexo"
+        + (f" para o cargo ou opcao '{cargo}'" if cargo else "")
+        + " e retorne EXCLUSIVAMENTE um objeto JSON "
         "com o mapa de numero da questao (inteiro) para a letra correta (string maiuscula). "
         'Formato exato: {"1": "B", "2": "D", "3": "A", ...}. '
-        "Extraia TODOS os numeros de questao presentes. Nao inclua nenhum campo adicional."
+        "Extraia TODOS os numeros de questao presentes para o cargo/opcao indicado (ou todas se houver apenas um cargo). Nao inclua nenhum campo adicional."
     )
     uploaded = None
     try:
         uploaded = client.files.upload(path=gabarito_path)
         part = types.Part.from_uri(file_uri=uploaded.uri, mime_type="application/pdf")
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[part, prompt],
-            config={"response_mime_type": "application/json"},
-        )
-        return _parse_gabarito(response.text)
+
+        models_to_try = list(dict.fromkeys([
+            os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-flash-lite-latest",
+        ]))
+
+        last_error = None
+        for model_name in models_to_try:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=[part, prompt],
+                    config={"response_mime_type": "application/json"},
+                )
+                res = _parse_gabarito(response.text)
+                if GEMINI_SLEEP_TIME > 0:
+                    time.sleep(GEMINI_SLEEP_TIME)
+                return res
+            except Exception as err:
+                last_error = err
+                err_str = str(err)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    print(f"[gabarito] Modelo {model_name} rate-limited, aguardando 2s...")
+                    time.sleep(2)
+                    continue
+                if any(code in err_str for code in ["500", "503", "404", "UNAVAILABLE", "ServerError"]):
+                    print(f"[gabarito] Modelo {model_name} indisponivel ({err_str}), aguardando 2s...")
+                    time.sleep(2)
+                    continue
+                raise err
+        if last_error:
+            raise last_error
     finally:
         if uploaded:
             try:
@@ -221,9 +252,14 @@ def process_exam_background(
             db.commit()
 
         # 1. Extrair gabarito
-        print(f"[exam_processor] Extraindo gabarito: {gabarito_path}")
+        cargo_name = None
+        exam_obj = db.query(Exam).filter(Exam.id == exam_id).first()
+        if exam_obj:
+            cargo_name = exam_obj.cargo
+
+        print(f"[exam_processor] Extraindo gabarito: {gabarito_path} (cargo: {cargo_name})")
         try:
-            gabarito_map = extract_gabarito(gabarito_path)
+            gabarito_map = extract_gabarito(gabarito_path, cargo=cargo_name)
             print(f"[exam_processor] Gabarito extraido: {len(gabarito_map)} questoes")
         except Exception as e:
             print(f"[exam_processor] Erro ao extrair gabarito: {e}")
@@ -262,9 +298,9 @@ def process_exam_background(
             task.total_chunks = len(chunks)
             db.commit()
 
-        total_extracted = task.extracted_questions_count if task and task.extracted_questions_count else 0
+        total_extracted = task.extracted_questions_count if (task and isinstance(task.extracted_questions_count, int)) else 0
         source_filename = task.filename if task and task.filename else os.path.basename(caderno_path)
-        start_index = task.processed_chunks if task and task.processed_chunks else 0
+        start_index = task.processed_chunks if (task and isinstance(task.processed_chunks, int)) else 0
 
         # 4. Processar chunks
         for chunk_path in chunks[start_index:]:
@@ -274,7 +310,12 @@ def process_exam_background(
 
                 for q in extracted.questions:
                     correct_option = gabarito_map.get(q.question_number)
-                    needs_review_flag = correct_option is None
+                    is_ai_gen = q.is_ai_generated
+                    if not correct_option and q.correct_option:
+                        correct_option = q.correct_option.strip().upper()
+                        is_ai_gen = True
+
+                    needs_review_flag = (correct_option is None or correct_option == "")
 
                     content_id = None
                     if q.materia and q.topico:
@@ -301,7 +342,7 @@ def process_exam_background(
                             options=q.options,
                             correct_option=correct_option or "",
                             explanation=q.explanation,
-                            is_ai_generated=q.is_ai_generated,
+                            is_ai_generated=is_ai_gen,
                             source_file=source_filename,
                             source_type="exam",
                             exam_id=exam_id,

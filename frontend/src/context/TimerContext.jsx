@@ -77,7 +77,7 @@ export function showDesktopNotification(title, body) {
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       new Notification(title, { body });
     }
-  } catch {}
+  } catch { /* ignore */ }
 }
 
 export const TimerProvider = ({ children }) => {
@@ -102,7 +102,7 @@ export const TimerProvider = ({ children }) => {
           return parsed.elapsed;
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
     return 0;
   });
 
@@ -115,7 +115,7 @@ export const TimerProvider = ({ children }) => {
           return parsed.isRunning;
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
     return true; // Por padrao inicia rodando
   });
 
@@ -129,7 +129,7 @@ export const TimerProvider = ({ children }) => {
           return parsed.stage;
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
     return 'focus';
   });
 
@@ -142,7 +142,7 @@ export const TimerProvider = ({ children }) => {
           return parsed.remaining;
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
     return FOCUS_TIME;
   });
 
@@ -155,7 +155,7 @@ export const TimerProvider = ({ children }) => {
           return parsed.isRunning;
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
     return false;
   });
 
@@ -168,7 +168,7 @@ export const TimerProvider = ({ children }) => {
           return parsed.completedToday;
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
     return 0;
   });
 
@@ -181,7 +181,7 @@ export const TimerProvider = ({ children }) => {
           return parsed.cycleCount;
         }
       }
-    } catch {}
+    } catch { /* ignore */ }
     return 0;
   });
 
@@ -196,7 +196,7 @@ export const TimerProvider = ({ children }) => {
     setTimerMode(newMode);
     try {
       localStorage.setItem(MODE_STORAGE_KEY, newMode);
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   // Persistencia Free Timer
@@ -210,7 +210,7 @@ export const TimerProvider = ({ children }) => {
           sessionDate: getTodayString(),
         })
       );
-    } catch {}
+    } catch { /* ignore */ }
   }, [freeElapsed, isFreeRunning]);
 
   // Persistencia Pomodoro Timer
@@ -227,7 +227,7 @@ export const TimerProvider = ({ children }) => {
           sessionDate: getTodayString(),
         })
       );
-    } catch {}
+    } catch { /* ignore */ }
   }, [pomodoroStage, pomodoroRemaining, isPomodoroRunning, pomodorosCompletedToday, pomodoroCycleCount]);
 
   // Checagem de virada de dia (meia-noite)
@@ -436,7 +436,7 @@ export const TimerProvider = ({ children }) => {
       localStorage.removeItem(FREE_STORAGE_KEY);
       localStorage.removeItem(POMODORO_STORAGE_KEY);
       localStorage.removeItem('session_start_timestamp');
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const value = {
