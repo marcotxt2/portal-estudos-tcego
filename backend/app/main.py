@@ -31,7 +31,22 @@ async def lifespan(app: FastAPI):
             db.close()
     except Exception as e:
         print(f"Warning: Auto-migration or auto-seed on startup failed: {e}")
+
+    # Iniciar scheduler de scraping diario
+    try:
+        from app.services.daily_scheduler import start_scheduler, stop_scheduler
+        start_scheduler()
+    except Exception as e:
+        print(f"Warning: Failed to start daily scheduler: {e}")
+
     yield
+
+    # Parar scheduler no shutdown
+    try:
+        from app.services.daily_scheduler import stop_scheduler
+        stop_scheduler()
+    except Exception:
+        pass
 
 app = FastAPI(title="Portal de Estudos TCE-GO API", lifespan=lifespan)
 
@@ -43,7 +58,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.routers import session, answers, modules, questions, auth, exams
+from app.routers import session, answers, modules, questions, auth, exams, generation
 
 app.include_router(auth.router)
 app.include_router(session.router, prefix="/api")
@@ -51,6 +66,7 @@ app.include_router(answers.router, prefix="/api")
 app.include_router(modules.router, prefix="/api")
 app.include_router(questions.router, prefix="/api")
 app.include_router(exams.router, prefix="/api")
+app.include_router(generation.router, prefix="/api")
 @app.get("/health")
 def health_check():
     return {"status": "ok"}

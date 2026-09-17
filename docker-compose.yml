@@ -27,6 +27,10 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-portal_user}:${POSTGRES_PASSWORD:-portal_pass}@db:5432/${POSTGRES_DB:-portal_db}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-flash-lite-latest}
+      DAILY_SCRAPE_ENABLED: ${DAILY_SCRAPE_ENABLED:-true}
+      DAILY_GEN_HOUR: ${DAILY_GEN_HOUR:-5}
+      DAILY_GEN_MINUTE: ${DAILY_GEN_MINUTE:-0}
+      DAILY_SCRAPE_MAX_EXAMS: ${DAILY_SCRAPE_MAX_EXAMS:-2}
     depends_on:
       db:
         condition: service_healthy

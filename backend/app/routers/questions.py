@@ -37,7 +37,11 @@ def get_filtered_questions(
         query = query.filter(Question.source_file == source_file)
 
     if source_type:
-        query = query.filter(Question.source_type == source_type)
+        st_list = [st.strip() for st in source_type.split(",") if st.strip()]
+        if len(st_list) == 1:
+            query = query.filter(Question.source_type == st_list[0])
+        elif len(st_list) > 1:
+            query = query.filter(Question.source_type.in_(st_list))
     
     if materia:
         query = query.join(Content, Question.content_id == Content.id)

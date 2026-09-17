@@ -104,3 +104,42 @@ class ReviewClassifyRequest(BaseModel):
     materia: Optional[str] = None
     topico: Optional[str] = None
     discard: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Scraping / Geracao automatica
+# ---------------------------------------------------------------------------
+
+class GenerationLogResponse(BaseModel):
+    id: int
+    run_date: datetime
+    questions_generated: int
+    topics_covered: Optional[Any] = None
+    status: str
+    error_message: Optional[str] = None
+    duration_seconds: Optional[float] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ScrapedExamResponse(BaseModel):
+    id: int
+    source_url: str
+    cargo: Optional[str] = None
+    ano: Optional[int] = None
+    orgao: Optional[str] = None
+    status: str
+    questions_extracted: int = 0
+    error_message: Optional[str] = None
+    scraped_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class GenerationStatsResponse(BaseModel):
+    total_scraped_questions: int = 0
+    total_exam_questions: int = 0
+    total_slide_questions: int = 0
+    total_scraped_exams: int = 0
+    questions_by_materia: Dict[str, int] = {}
+    last_run_date: Optional[datetime] = None
+    last_run_status: Optional[str] = None
+    last_run_count: int = 0
+    scheduler_active: bool = False
+    next_scheduled_run: Optional[str] = None
