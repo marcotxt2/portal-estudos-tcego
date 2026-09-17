@@ -26,8 +26,11 @@ logger = logging.getLogger("scrape_processor")
 
 
 def _is_already_processed(source_url: str, db: Session) -> bool:
-    """Verifica se a URL ja foi processada."""
-    return db.query(ScrapedExam).filter(ScrapedExam.source_url == source_url).first() is not None
+    """Verifica se a URL ja foi processada com sucesso."""
+    return db.query(ScrapedExam).filter(
+        ScrapedExam.source_url == source_url,
+        ScrapedExam.status == "success"
+    ).first() is not None
 
 
 def _split_pdf_into_chunks(pdf_path: str, chunk_size: int = 8) -> list[str]:
@@ -220,14 +223,19 @@ def run_daily_scrape(max_exams: int = 2, max_pages: int = 10) -> dict:
 
         # 3. Processar ate max_exams
         for exam_meta in new_exams[:max_exams]:
-            scraped_record = ScrapedExam(
-                source_url=exam_meta.url,
-                cargo=exam_meta.cargo,
-                ano=exam_meta.ano,
-                orgao=exam_meta.orgao,
-                status="processing",
-            )
-            db.add(scraped_record)
+            scraped_record = db.query(ScrapedExam).filter(ScrapedExam.source_url == exam_meta.url).first()
+            if not scraped_record:
+                scraped_record = ScrapedExam(
+                    source_url=exam_meta.url,
+                    cargo=exam_meta.cargo,
+                    ano=exam_meta.ano,
+                    orgao=exam_meta.orgao,
+                    status="processing",
+                )
+                db.add(scraped_record)
+            else:
+                scraped_record.status = "processing"
+                scraped_record.error_message = None
             db.commit()
 
             try:

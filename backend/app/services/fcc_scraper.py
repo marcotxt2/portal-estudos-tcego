@@ -123,43 +123,88 @@ def discover_exam_urls(max_pages: int = 10) -> list[ScrapedExamMeta]:
     return all_exams
 
 
+def _extract_pdf_url_from_page(html: str, page_url: str) -> str | None:
+    """Extrai o link direto do PDF a partir do HTML da pagina do PCI Concursos."""
+    soup = BeautifulSoup(html, "html.parser")
+
+    # 1. Procurar por links <a href="..."> contendo .pdf ou cdn.pciconcursos.com.br
+    for a in soup.find_all("a", href=True):
+        href = a["href"].strip()
+        if ".pdf" in href.lower() or "cdn.pciconcursos" in href.lower():
+            if href.startswith("//"):
+                return "https:" + href
+            if not href.startswith("http"):
+                return BASE_URL + (href if href.startswith("/") else f"/{href}")
+            return href
+
+    # 2. Procurar por iframe com src .pdf ou cdn.pciconcursos
+    for iframe in soup.find_all("iframe", src=True):
+        src = iframe["src"].strip()
+        if ".pdf" in src.lower() or "cdn.pciconcursos" in src.lower():
+            if src.startswith("//"):
+                return "https:" + src
+            if not src.startswith("http"):
+                return BASE_URL + (src if src.startswith("/") else f"/{src}")
+            return src
+
+    # 3. Procurar elementos com data-url ou onclick com link do PDF
+    for el in soup.find_all(True):
+        for attr in ["data-url", "data-href", "onclick"]:
+            val = el.get(attr, "")
+            if val and (".pdf" in val.lower() or "cdn.pciconcursos" in val.lower()):
+                match = re.search(r"https?://[^\s'\"<>]+\.pdf", val, re.IGNORECASE)
+                if match:
+                    return match.group(0)
+
+    return None
+
+
 def download_exam_pdf(exam_url: str, dest_dir: str | None = None) -> str | None:
     """
     Baixa o PDF de uma prova do PCI Concursos.
+    Se a URL for uma pagina HTML intermediaria, extrai o link direto do PDF.
     Retorna o path local do arquivo ou None em caso de erro.
     """
     if dest_dir is None:
         dest_dir = os.path.join(tempfile.gettempdir(), "scraped_exams")
     os.makedirs(dest_dir, exist_ok=True)
 
-    # Gerar nome de arquivo a partir da URL
-    slug = exam_url.rstrip("/").split("/")[-1]
-    slug = re.sub(r"[^a-zA-Z0-9_-]", "_", slug)[:100]
-    filename = f"{slug}.pdf"
-    filepath = os.path.join(dest_dir, filename)
-
-    if os.path.exists(filepath):
-        logger.info(f"[fcc_scraper] PDF ja existe: {filepath}")
-        return filepath
+    target_url = exam_url
 
     try:
-        logger.info(f"[fcc_scraper] Baixando: {exam_url}")
-        resp = requests.get(exam_url, headers=HEADERS, timeout=60, stream=True)
+        logger.info(f"[fcc_scraper] Acessando URL da prova: {target_url}")
+        resp = requests.get(target_url, headers=HEADERS, timeout=30)
         resp.raise_for_status()
 
         content_type = resp.headers.get("Content-Type", "")
-        if "pdf" not in content_type.lower() and "octet-stream" not in content_type.lower():
-            logger.warning(f"[fcc_scraper] Conteudo nao e PDF ({content_type}), pulando.")
-            return None
+
+        # Se retornou pagina HTML intermediaria, resolver o link direto do PDF
+        if "html" in content_type.lower():
+            direct_pdf_url = _extract_pdf_url_from_page(resp.text, target_url)
+            if direct_pdf_url:
+                logger.info(f"[fcc_scraper] Link direto para PDF encontrado: {direct_pdf_url}")
+                target_url = direct_pdf_url
+                resp = requests.get(target_url, headers=HEADERS, timeout=60, stream=True)
+                resp.raise_for_status()
+            else:
+                logger.warning(f"[fcc_scraper] Pagina HTML nao contem link de PDF valido: {target_url}")
+                return None
+
+        # Gerar nome do arquivo
+        slug = target_url.rstrip("/").split("/")[-1]
+        slug = re.sub(r"[^a-zA-Z0-9_-]", "_", slug)[:100]
+        filename = f"{slug}.pdf" if not slug.lower().endswith(".pdf") else slug
+        filepath = os.path.join(dest_dir, filename)
 
         with open(filepath, "wb") as f:
             for chunk in resp.iter_content(chunk_size=8192):
                 f.write(chunk)
 
         file_size = os.path.getsize(filepath)
-        if file_size < 5000:
-            logger.warning(f"[fcc_scraper] PDF muito pequeno ({file_size}b), possivelmente invalido.")
-            os.remove(filepath)
+        if file_size < 3000:
+            logger.warning(f"[fcc_scraper] Arquivo muito pequeno ({file_size}b), nao e PDF de prova valido.")
+            if os.path.exists(filepath):
+                os.remove(filepath)
             return None
 
         logger.info(f"[fcc_scraper] Download OK: {filepath} ({file_size} bytes)")
@@ -168,6 +213,4 @@ def download_exam_pdf(exam_url: str, dest_dir: str | None = None) -> str | None:
 
     except requests.RequestException as e:
         logger.error(f"[fcc_scraper] Erro no download de {exam_url}: {e}")
-        if os.path.exists(filepath):
-            os.remove(filepath)
         return None
