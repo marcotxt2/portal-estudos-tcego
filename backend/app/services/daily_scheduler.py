@@ -31,8 +31,8 @@ def start_scheduler():
         logger.info("[daily_scheduler] Scraping automatico desabilitado (DAILY_SCRAPE_ENABLED != true)")
         return
 
-    hour = int(os.getenv("DAILY_GEN_HOUR", "5"))
-    minute = int(os.getenv("DAILY_GEN_MINUTE", "0"))
+    hour = int(os.getenv("DAILY_GEN_HOUR", "8"))
+    minute = int(os.getenv("DAILY_GEN_MINUTE", "50"))
 
     _scheduler = BackgroundScheduler(timezone="America/Sao_Paulo")
     _scheduler.add_job(
