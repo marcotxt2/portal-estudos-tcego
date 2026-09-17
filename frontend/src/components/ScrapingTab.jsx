@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { triggerScraping, fetchGenerationStats, fetchGenerationLogs, fetchScrapedExams } from '../api';
+import { triggerScraping, fetchGenerationStats, fetchGenerationLogs, fetchScrapedExams, cancelScraping, clearScrapingErrors } from '../api';
 
 const ScrapingTab = () => {
   const [stats, setStats] = useState(null);
@@ -7,6 +7,7 @@ const ScrapingTab = () => {
   const [scrapedExams, setScrapedExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [expandedExamId, setExpandedExamId] = useState(null);
   const [expandedLogId, setExpandedLogId] = useState(null);
@@ -52,6 +53,34 @@ const ScrapingTab = () => {
     }
   };
 
+  const handleCancelScraping = async () => {
+    try {
+      setActionLoading(true);
+      setStatusMessage('Cancelando varredura em andamento...');
+      const res = await cancelScraping();
+      setStatusMessage(res.message || 'Varredura cancelada com sucesso!');
+      await loadData();
+    } catch (err) {
+      setStatusMessage(`Erro ao cancelar: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleClearErrors = async () => {
+    try {
+      setActionLoading(true);
+      setStatusMessage('Limpando histórico de erros...');
+      const res = await clearScrapingErrors();
+      setStatusMessage(res.message || 'Histórico de erros limpo!');
+      await loadData();
+    } catch (err) {
+      setStatusMessage(`Erro ao limpar erros: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const formatNextRun = (isoStr) => {
     if (!isoStr) return 'Todos os dias às 05:00 BRT';
     try {
@@ -78,6 +107,7 @@ const ScrapingTab = () => {
   }
 
   const isCurrentlyProcessing = scrapedExams.some((e) => e.status === 'processing');
+  const hasErrors = scrapedExams.some((e) => e.status === 'error' || e.status === 'cancelled') || logs.some((l) => l.status === 'error');
 
   return (
     <div className="space-y-6">
@@ -114,41 +144,54 @@ const ScrapingTab = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleTriggerNow}
-          disabled={triggering || isCurrentlyProcessing}
-          className="px-5 py-2.5 rounded-lg text-xs font-semibold text-white transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow"
-          style={{ backgroundColor: 'var(--color-primary)' }}
-        >
-          {triggering || isCurrentlyProcessing ? (
-            <>
-              <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-              <span>Varredura em Andamento...</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span>Puxar Questões Agora</span>
-            </>
+        <div className="flex flex-wrap items-center gap-2">
+          {isCurrentlyProcessing && (
+            <button
+              onClick={handleCancelScraping}
+              disabled={actionLoading}
+              className="px-4 py-2.5 rounded-lg text-xs font-semibold text-red-200 bg-red-950/80 border border-red-500/40 hover:bg-red-900 transition-all cursor-pointer shadow"
+            >
+              Cancelar Varredura Travada
+            </button>
           )}
-        </button>
+
+          <button
+            onClick={handleTriggerNow}
+            disabled={triggering || isCurrentlyProcessing || actionLoading}
+            className="px-5 py-2.5 rounded-lg text-xs font-semibold text-white transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow"
+            style={{ backgroundColor: 'var(--color-primary)' }}
+          >
+            {triggering || isCurrentlyProcessing ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span>Varredura em Andamento...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Puxar Questões Agora</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {statusMessage && (
         <div
-          className="p-3 rounded-lg border text-xs font-medium"
+          className="p-3 rounded-lg border text-xs font-medium flex justify-between items-center"
           style={{
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
             borderColor: 'rgba(59, 130, 246, 0.3)',
             color: '#93c5fd',
           }}
         >
-          {statusMessage}
+          <span>{statusMessage}</span>
+          <button onClick={() => setStatusMessage('')} className="text-gray-400 hover:text-white cursor-pointer ml-2">✕</button>
         </div>
       )}
 
@@ -200,9 +243,20 @@ const ScrapingTab = () => {
         className="rounded-xl border p-5 space-y-3"
         style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
       >
-        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-300">
-          Provas FCC Mapeadas e Coletadas
-        </h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-gray-300">
+            Provas FCC Mapeadas e Coletadas
+          </h3>
+          {hasErrors && (
+            <button
+              onClick={handleClearErrors}
+              disabled={actionLoading}
+              className="px-3 py-1 text-xs font-semibold rounded bg-neutral-800 text-amber-300 border border-amber-500/30 hover:bg-neutral-700 cursor-pointer"
+            >
+              Limpar Erros
+            </button>
+          )}
+        </div>
 
         {scrapedExams.length === 0 ? (
           <p className="text-xs text-gray-500 py-4">Nenhuma prova coletada ainda. Clique em "Puxar Questões Agora".</p>
@@ -274,9 +328,20 @@ const ScrapingTab = () => {
         className="rounded-xl border p-5 space-y-3"
         style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
       >
-        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-300">
-          Histórico de Execuções e Diagnóstico de Logs
-        </h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-gray-300">
+            Histórico de Execuções do Scraper
+          </h3>
+          {hasErrors && (
+            <button
+              onClick={handleClearErrors}
+              disabled={actionLoading}
+              className="px-3 py-1 text-xs font-semibold rounded bg-neutral-800 text-amber-300 border border-amber-500/30 hover:bg-neutral-700 cursor-pointer"
+            >
+              Limpar Erros
+            </button>
+          )}
+        </div>
 
         {logs.length === 0 ? (
           <p className="text-xs text-gray-500 py-4">Nenhum log registrado ainda.</p>

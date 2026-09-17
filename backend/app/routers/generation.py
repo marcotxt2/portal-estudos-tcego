@@ -123,3 +123,49 @@ def get_generation_stats(
         scheduler_active=scheduler is not None and scheduler.running,
         next_scheduled_run=next_run,
     )
+
+
+# ---------------------------------------------------------------------------
+# Cancelar / Resetar varredura em andamento
+# ---------------------------------------------------------------------------
+
+@router.post("/cancel")
+def cancel_stuck_scraping(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Cancela/reseta varreduras travadas no status 'processing'."""
+    stuck_exams = db.query(ScrapedExam).filter(ScrapedExam.status == "processing").all()
+    count = len(stuck_exams)
+
+    for ex in stuck_exams:
+        ex.status = "error"
+        ex.error_message = "Varredura cancelada manualmente pelo usuario."
+
+    db.commit()
+
+    return {
+        "message": f"{count} varredura(s) travada(s) foram canceladas e resetadas com sucesso.",
+        "count": count,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Limpar erros de scraping
+# ---------------------------------------------------------------------------
+
+@router.post("/clear-errors")
+def clear_scraping_errors(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove registros de provas e logs com erro para limpar o historico."""
+    deleted_exams = db.query(ScrapedExam).filter(ScrapedExam.status.in_(["error", "cancelled"])).delete(synchronize_session=False)
+    deleted_logs = db.query(GenerationLog).filter(GenerationLog.status == "error").delete(synchronize_session=False)
+    db.commit()
+
+    return {
+        "message": "Historico de erros limpo com sucesso.",
+        "deleted_exams": deleted_exams,
+        "deleted_logs": deleted_logs,
+    }

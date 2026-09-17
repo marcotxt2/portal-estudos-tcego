@@ -224,3 +224,19 @@ export const fetchScrapedExams = async (limit = 50) => {
   if (!res.ok) throw new Error('Falha ao buscar provas scrapeadas');
   return res.json();
 };
+
+export const cancelScraping = async () => {
+  const res = await fetchWithAuth(`${API_URL}/generation/cancel`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Falha ao cancelar varredura');
+  return res.json();
+};
+
+export const clearScrapingErrors = async () => {
+  const res = await fetchWithAuth(`${API_URL}/generation/clear-errors`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Falha ao limpar erros');
+  return res.json();
+};
