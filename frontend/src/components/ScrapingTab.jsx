@@ -8,6 +8,8 @@ const ScrapingTab = () => {
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [expandedExamId, setExpandedExamId] = useState(null);
+  const [expandedLogId, setExpandedLogId] = useState(null);
 
   const pollingRef = useRef(null);
 
@@ -15,8 +17,8 @@ const ScrapingTab = () => {
     try {
       const [s, l, e] = await Promise.all([
         fetchGenerationStats(),
-        fetchGenerationLogs(10),
-        fetchScrapedExams(20),
+        fetchGenerationLogs(15),
+        fetchScrapedExams(30),
       ]);
       setStats(s);
       setLogs(l);
@@ -30,7 +32,6 @@ const ScrapingTab = () => {
 
   useEffect(() => {
     loadData();
-    // Polling a cada 5 segundos para manter o progresso atualizado
     pollingRef.current = setInterval(loadData, 5000);
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
@@ -215,6 +216,7 @@ const ScrapingTab = () => {
                   <th className="py-2">Ano</th>
                   <th className="py-2">Status</th>
                   <th className="py-2 text-right">Questões</th>
+                  <th className="py-2 text-center">Detalhes / Log</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800/50">
@@ -239,21 +241,41 @@ const ScrapingTab = () => {
                     <td className="py-2.5 text-right font-mono text-emerald-400 font-semibold">
                       +{ex.questions_extracted || 0}
                     </td>
+                    <td className="py-2.5 text-center">
+                      {ex.error_message ? (
+                        <button
+                          onClick={() => setExpandedExamId(expandedExamId === ex.id ? null : ex.id)}
+                          className="px-2 py-1 text-[10px] font-bold rounded bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30 cursor-pointer"
+                        >
+                          {expandedExamId === ex.id ? 'Ocultar Erro' : 'Ver Erro'}
+                        </button>
+                      ) : (
+                        <span className="text-gray-600 text-[10px]">OK</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            {/* Painel Expansivel de Erro por Prova */}
+            {expandedExamId && (
+              <div className="mt-3 p-4 rounded-lg bg-red-950/40 border border-red-500/30 text-xs font-mono text-red-200 whitespace-pre-wrap">
+                <span className="font-bold text-red-400 block mb-1">Log de Erro da Prova #{expandedExamId}:</span>
+                {scrapedExams.find((e) => e.id === expandedExamId)?.error_message || 'Nenhum detalhe adicional.'}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Histórico de Execuções */}
+      {/* Histórico de Execuções e Diagnóstico de Logs */}
       <div
         className="rounded-xl border p-5 space-y-3"
         style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
       >
         <h3 className="text-sm font-bold uppercase tracking-wider text-gray-300">
-          Histórico de Execuções do Scraper
+          Histórico de Execuções e Diagnóstico de Logs
         </h3>
 
         {logs.length === 0 ? (
@@ -261,37 +283,70 @@ const ScrapingTab = () => {
         ) : (
           <div className="space-y-2">
             {logs.map((log) => (
-              <div
-                key={log.id}
-                className="flex items-center justify-between p-3 rounded-lg border text-xs"
-                style={{
-                  backgroundColor: 'var(--color-bg)',
-                  borderColor: 'var(--color-border)',
-                }}
-              >
-                <div>
-                  <span className="font-semibold text-gray-300">
-                    {new Date(log.run_date).toLocaleString('pt-BR')}
-                  </span>
-                  <span className="ml-3 text-gray-500">
-                    Duração: {log.duration_seconds || 0}s
-                  </span>
+              <div key={log.id} className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--color-border)' }}>
+                <div
+                  className="flex items-center justify-between p-3 text-xs cursor-pointer hover:bg-neutral-800/30"
+                  style={{ backgroundColor: 'var(--color-bg)' }}
+                  onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
+                >
+                  <div>
+                    <span className="font-semibold text-gray-300">
+                      {new Date(log.run_date).toLocaleString('pt-BR')}
+                    </span>
+                    <span className="ml-3 text-gray-500">
+                      Duração: {log.duration_seconds || 0}s
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-emerald-400 font-bold">
+                      +{log.questions_generated} questões
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                        log.status === 'success'
+                          ? 'bg-emerald-500/10 text-emerald-400'
+                          : 'bg-red-500/10 text-red-400'
+                      }`}
+                    >
+                      {log.status}
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-bold">
+                      {expandedLogId === log.id ? '▲' : '▼'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-emerald-400 font-bold">
-                    +{log.questions_generated} questões
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
-                      log.status === 'success'
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : 'bg-red-500/10 text-red-400'
-                    }`}
-                  >
-                    {log.status}
-                  </span>
-                </div>
+                {/* Conteudo Expandido do Log */}
+                {expandedLogId === log.id && (
+                  <div className="p-4 bg-neutral-900 border-t border-neutral-800 text-xs space-y-2 font-mono">
+                    {log.error_message ? (
+                      <div>
+                        <span className="text-red-400 font-bold block mb-1">Erros Registrados:</span>
+                        <div className="p-3 bg-red-950/30 border border-red-900/50 rounded text-red-200 whitespace-pre-wrap">
+                          {log.error_message}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-emerald-400 font-semibold">Execução concluída com sucesso sem erros.</p>
+                    )}
+
+                    {log.topics_covered && Array.isArray(log.topics_covered) && log.topics_covered.length > 0 && (
+                      <div>
+                        <span className="text-gray-400 font-bold block mt-2 mb-1">Provas Processadas no Lote:</span>
+                        <ul className="list-disc list-inside text-gray-300 space-y-1">
+                          {log.topics_covered.map((item, idx) => (
+                            <li key={idx}>
+                              {typeof item === 'object'
+                                ? `${item.cargo || 'Prova'} (${item.ano || '-'}) -> +${item.questions || 0} questões`
+                                : JSON.stringify(item)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

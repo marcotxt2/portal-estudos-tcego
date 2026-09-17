@@ -40,34 +40,28 @@ class ScrapedExamMeta:
 # Fontes de sementes diretas e verificadas da FCC para alimentacao imediata e continua
 SEED_EXAMS: list[ScrapedExamMeta] = [
     ScrapedExamMeta(
-        url="https://www.concursosfcc.com.br/concursos/mpeal125/edital_01-2025_-_22_01_26__2_publicar.pdf",
-        cargo="Analista de TI - Ministerio Publico de Alagoas",
-        ano=2025,
-        orgao="MPE-AL",
-    ),
-    ScrapedExamMeta(
         url="https://www.concursosfcc.com.br/concursos/alerr125/edital_todos_os_cargos__01_04_26_fcc_sem_senha.pdf",
         cargo="Analista de Sistemas - Assembleia Legislativa de Roraima",
         ano=2025,
         orgao="ALE-RR",
     ),
     ScrapedExamMeta(
-        url="https://www.concursosfcc.com.br/concursos/tcego125/edital_01_2025.pdf",
+        url="https://www.concursosfcc.com.br/concursos/mpeal125/edital_01-2025_-_22_01_26__2_publicar.pdf",
+        cargo="Analista de TI - Ministerio Publico de Alagoas",
+        ano=2025,
+        orgao="MPE-AL",
+    ),
+    ScrapedExamMeta(
+        url="https://www.concursosfcc.com.br/concursos/tcego125/edital_de_abertura_versaex771_o_15_09_2026_-_consolidado_com_retificacoes__1_.pdf",
         cargo="Analista de Controle Externo - TI - TCE GO",
         ano=2025,
         orgao="TCE-GO",
     ),
     ScrapedExamMeta(
-        url="https://www.concursosfcc.com.br/concursos/sefsc126/edital_01_2026.pdf",
+        url="https://www.concursosfcc.com.br/concursos/sefsc126/sefsc126_edital_de_abertura_final_publicar.pdf",
         cargo="Auditor de TI e Sistemas - SEFAZ SC",
         ano=2026,
         orgao="SEFAZ-SC",
-    ),
-    ScrapedExamMeta(
-        url="https://www.concursosfcc.com.br/concursos/sface125/edital_01_2025.pdf",
-        cargo="Analista de Tecnologia da Informacao - SEFAZ CE",
-        ano=2025,
-        orgao="SEFAZ-CE",
     ),
 ]
 

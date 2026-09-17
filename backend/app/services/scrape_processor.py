@@ -167,8 +167,9 @@ def process_scraped_exam(meta: ScrapedExamMeta, pdf_path: str, db: Session) -> i
                         pass
 
     except Exception as e:
-        logger.error(f"[scrape_processor] Erro geral: {e}")
+        logger.error(f"[scrape_processor] Erro geral ao processar prova: {e}")
         db.rollback()
+        raise e
 
     return total_inserted
 
