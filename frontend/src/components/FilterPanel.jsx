@@ -17,7 +17,8 @@ const FilterPanel = ({
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [apenasErros, setApenasErros] = useState(initialApenasErros);
   const [naoRespondidas, setNaoRespondidas] = useState(initialNaoRespondidas);
-  const [apenasProvasFCC, setApenasProvasFCC] = useState(initialSourceType === 'exam');
+  const [apenasProvasFCC, setApenasProvasFCC] = useState(initialSourceType.includes('exam'));
+  const [apenasScraper, setApenasScraper] = useState(initialSourceType.includes('scraped'));
 
   useEffect(() => {
     setMateria(initialMateria);
@@ -25,12 +26,20 @@ const FilterPanel = ({
     setSearchQuery(initialSearchQuery);
     setApenasErros(initialApenasErros);
     setNaoRespondidas(initialNaoRespondidas);
-    setApenasProvasFCC(initialSourceType === 'exam');
+    setApenasProvasFCC(initialSourceType.includes('exam'));
+    setApenasScraper(initialSourceType.includes('scraped'));
   }, [initialMateria, initialContentIds, initialSearchQuery, initialApenasErros, initialNaoRespondidas, initialSourceType]);
 
   // Deriva opcoes do backend
   const materiasDisponiveis = [...new Set(contents.map(c => c.materia))].sort();
   const topicosDisponiveis = contents.filter(c => c.materia === materia).sort((a, b) => a.topico.localeCompare(b.topico));
+
+  const getSourceTypeFilter = () => {
+    const types = [];
+    if (apenasScraper) types.push('scraped');
+    if (apenasProvasFCC) types.push('exam');
+    return types.join(',');
+  };
 
   const handleApply = () => {
     onFilterChange({
@@ -39,7 +48,7 @@ const FilterPanel = ({
       searchQuery,
       apenasErros,
       naoRespondidas,
-      source_type: apenasProvasFCC ? 'exam' : '',
+      source_type: getSourceTypeFilter(),
     });
   };
 
@@ -50,6 +59,7 @@ const FilterPanel = ({
     setApenasErros(false);
     setNaoRespondidas(false);
     setApenasProvasFCC(false);
+    setApenasScraper(false);
     onFilterChange({
       materia: '',
       contentIds: [],
@@ -197,6 +207,38 @@ const FilterPanel = ({
               aria-label="Não mostrar questões já respondidas"
               checked={naoRespondidas}
               onChange={(e) => setNaoRespondidas(e.target.checked)}
+            />
+          </label>
+
+          {/* Toggle: Apenas Coleta Automatica (Scraping) */}
+          <label
+            className="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all duration-150 select-none"
+            style={{
+              borderColor: apenasScraper ? '#10b981' : 'var(--color-border)',
+              backgroundColor: apenasScraper ? 'rgba(16, 185, 129, 0.12)' : 'var(--color-bg)',
+              color: apenasScraper ? '#34d399' : 'var(--color-text)',
+            }}
+          >
+            <span
+              className="w-4 h-4 rounded flex items-center justify-center border transition-colors"
+              style={{
+                borderColor: apenasScraper ? '#10b981' : 'var(--color-muted)',
+                backgroundColor: apenasScraper ? '#10b981' : 'transparent',
+              }}
+            >
+              {apenasScraper && (
+                <svg className="w-3 h-3 text-white" viewBox="0 0 16 16" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clipRule="evenodd" />
+                </svg>
+              )}
+            </span>
+            <span>Apenas Coleta Automática (Scraping)</span>
+            <input
+              type="checkbox"
+              className="sr-only"
+              aria-label="Apenas Coleta Automática (Scraping)"
+              checked={apenasScraper}
+              onChange={(e) => setApenasScraper(e.target.checked)}
             />
           </label>
 

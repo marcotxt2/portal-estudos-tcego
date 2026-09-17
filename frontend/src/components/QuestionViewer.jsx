@@ -117,8 +117,27 @@ const QuestionViewer = ({
       }}>
         {/* Badges / Metadados */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
+          {/* Badge Coleta Automatica */}
+          {question.source_type === 'scraped' && (
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
+              style={{
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderColor: 'rgba(16, 185, 129, 0.3)',
+                color: '#34d399',
+              }}
+              title="Questão coletada automaticamente pelo sistema (Scraping Diário FCC)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span>Coleta Automática</span>
+            </div>
+          )}
+
           {/* Badge FCC (AC-073) */}
-          {question.source_type === 'exam' && (
+          {(question.source_type === 'exam' || question.source_type === 'scraped') && (
             <div
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
               style={{

@@ -5,6 +5,7 @@ import ReviewTab from './components/ReviewTab';
 import UploadTab from './components/UploadTab';
 import BancoQuestoes from './components/BancoQuestoes';
 import ReviewPendingTab from './components/ReviewPendingTab';
+import ScrapingTab from './components/ScrapingTab';
 import { UploadProvider } from './context/UploadContext';
 import { QuestionsProvider } from './context/QuestionsContext';
 import { TimerProvider } from './context/TimerContext';
@@ -16,7 +17,7 @@ const STORAGE_KEY_TAB = 'portal_active_tab';
 const loadSavedTab = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY_TAB);
-    if (saved && ['banco', 'review', 'upload', 'pending'].includes(saved)) {
+    if (saved && ['banco', 'review', 'upload', 'pending', 'scraping'].includes(saved)) {
       return saved;
     }
     return 'banco';
@@ -42,10 +43,11 @@ function App() {
   const loadModules = useCallback(() => {}, []);
 
   const tabs = [
-    { id: 'banco',   label: 'Banco de Questões' },
-    { id: 'review',  label: 'Revisao Reversa' },
-    { id: 'upload',  label: 'Upload PDF' },
-    { id: 'pending', label: 'Revisao Pendente' },
+    { id: 'banco',    label: 'Banco de Questões' },
+    { id: 'review',   label: 'Revisao Reversa' },
+    { id: 'scraping', label: 'Coleta Automática (Scraping)' },
+    { id: 'upload',   label: 'Upload PDF' },
+    { id: 'pending',  label: 'Revisao Pendente' },
   ];
 
   if (loading) return <div className="min-h-screen bg-[var(--color-bg)]"></div>;
@@ -86,10 +88,11 @@ function App() {
 
                 {/* Conteudo da tab */}
                 <div>
-                  {activeTab === 'banco'   && <BancoQuestoes />}
-                  {activeTab === 'review'  && <ReviewTab />}
-                  {activeTab === 'upload'  && <UploadTab />}
-                  {activeTab === 'pending' && <ReviewPendingTab />}
+                  {activeTab === 'banco'    && <BancoQuestoes />}
+                  {activeTab === 'review'   && <ReviewTab />}
+                  {activeTab === 'scraping' && <ScrapingTab />}
+                  {activeTab === 'upload'   && <UploadTab />}
+                  {activeTab === 'pending'  && <ReviewPendingTab />}
                 </div>
               </div>
             </main>

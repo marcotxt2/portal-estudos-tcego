@@ -196,3 +196,31 @@ export const discardPendingQuestion = async (id) => {
   if (!res.ok) throw new Error('Failed to discard question');
   return res.json();
 };
+
+// --- Scraping / Geracao Automatica ---
+
+export const triggerScraping = async (maxExams = 2) => {
+  const res = await fetchWithAuth(`${API_URL}/generation/trigger?max_exams=${maxExams}`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error('Falha ao disparar scraping');
+  return res.json();
+};
+
+export const fetchGenerationStats = async () => {
+  const res = await fetchWithAuth(`${API_URL}/generation/stats`);
+  if (!res.ok) throw new Error('Falha ao buscar estatisticas de scraping');
+  return res.json();
+};
+
+export const fetchGenerationLogs = async (limit = 20) => {
+  const res = await fetchWithAuth(`${API_URL}/generation/logs?limit=${limit}`);
+  if (!res.ok) throw new Error('Falha ao buscar logs de scraping');
+  return res.json();
+};
+
+export const fetchScrapedExams = async (limit = 50) => {
+  const res = await fetchWithAuth(`${API_URL}/generation/scraped?limit=${limit}`);
+  if (!res.ok) throw new Error('Falha ao buscar provas scrapeadas');
+  return res.json();
+};
