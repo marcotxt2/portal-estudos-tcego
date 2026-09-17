@@ -37,6 +37,34 @@ def upgrade_db(engine_override=None):
             conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS needs_review BOOLEAN NOT NULL DEFAULT FALSE;"))
             conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS suggested_materia VARCHAR(255);"))
             conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS suggested_topico VARCHAR(255);"))
+            conn.execute(text("ALTER TABLE questions ADD COLUMN IF NOT EXISTS generation_batch VARCHAR(36);"))
+            # Geracao automatica diaria
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS generation_logs (
+                    id SERIAL PRIMARY KEY,
+                    run_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    questions_generated INTEGER DEFAULT 0,
+                    topics_covered JSONB,
+                    status VARCHAR(20) NOT NULL,
+                    error_message TEXT,
+                    duration_seconds REAL
+                );
+            """))
+            # Scraping automatico
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS scraped_exams (
+                    id SERIAL PRIMARY KEY,
+                    source_url VARCHAR(500) NOT NULL UNIQUE,
+                    cargo VARCHAR(255),
+                    ano INTEGER,
+                    orgao VARCHAR(255),
+                    status VARCHAR(20) NOT NULL,
+                    questions_extracted INTEGER DEFAULT 0,
+                    error_message TEXT,
+                    scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_scraped_exams_url ON scraped_exams(source_url);"))
             conn.commit()
         else:
             from sqlalchemy import inspect

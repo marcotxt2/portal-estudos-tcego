@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, TIMESTAMP, Boolean, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, TIMESTAMP, Boolean, JSON, UniqueConstraint, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -56,6 +56,7 @@ class Question(Base):
     needs_review = Column(Boolean, nullable=False, default=False, server_default="false")
     suggested_materia = Column(String(255), nullable=True)
     suggested_topico = Column(String(255), nullable=True)
+    generation_batch = Column(String(36), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
 
     exam = relationship("Exam")
@@ -82,3 +83,27 @@ class UploadTask(Base):
     extracted_questions_count = Column(Integer, nullable=False, default=0, server_default="0")
     error_message = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
+
+class GenerationLog(Base):
+    __tablename__ = "generation_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_date = Column(TIMESTAMP, server_default=func.now())
+    questions_generated = Column(Integer, default=0)
+    topics_covered = Column(JSON, nullable=True)
+    status = Column(String(20), nullable=False)  # success, partial, error
+    error_message = Column(Text, nullable=True)
+    duration_seconds = Column(Float, nullable=True)
+
+class ScrapedExam(Base):
+    __tablename__ = "scraped_exams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_url = Column(String(500), nullable=False, unique=True, index=True)
+    cargo = Column(String(255), nullable=True)
+    ano = Column(Integer, nullable=True)
+    orgao = Column(String(255), nullable=True)
+    status = Column(String(20), nullable=False)  # success, error, skipped
+    questions_extracted = Column(Integer, default=0)
+    error_message = Column(Text, nullable=True)
+    scraped_at = Column(TIMESTAMP, server_default=func.now())
