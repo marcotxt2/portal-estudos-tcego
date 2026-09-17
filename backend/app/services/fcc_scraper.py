@@ -37,7 +37,7 @@ class ScrapedExamMeta:
     orgao: str        # Orgao (ex: TCE-GO, TRT-1, MPE-AL)
 
 
-# Palavras-chave de documentos administrativos/editais que DEVEM ser ignorados
+# Palavras-chave de documentos administrativos, resultados, editais e discursivas que DEVEM ser ignorados
 EXCLUDED_KEYWORDS = [
     "edital",
     "comunicado",
@@ -46,16 +46,32 @@ EXCLUDED_KEYWORDS = [
     "local_de_prova",
     "locais_de_prova",
     "respostas_impugnac",
-    "resultado_da_analise",
-    "gabaritos_definitivos",
+    "resultado",
+    "discursiva",
+    "gabarito",
+    "gabaritos",
+    "lista",
+    "recurso",
+    "recursos",
+    "impugnacao",
+    "divulgacao",
+    "relacao",
+    "convocacao",
+    "desempate",
+    "heteroidentificacao",
     "comprovante",
     "inscricoes",
     "deferidas",
+    "deferimento",
+    "anulada",
+    "anuladas",
+    "analise",
+    "candidatos",
 ]
 
 
 def _is_edital_or_admin_doc(text: str) -> bool:
-    """Verifica se o texto se refere a um edital ou documento administrativo."""
+    """Verifica se o texto se refere a um edital, resultado ou documento administrativo."""
     text_lower = text.lower()
     return any(keyword in text_lower for keyword in EXCLUDED_KEYWORDS)
 
@@ -118,8 +134,8 @@ def _extract_pdfs_from_contest_page(contest_name: str, contest_url: str, html: s
                 logger.debug(f"[fcc_scraper] Ignorando edital/documento administrativo: {pdf_url}")
                 continue
 
-            # FILTRAR APENAS CADERNOS DE PROVA DE TI OU QUESTOES
-            if matches_cargo_keyword(candidate_text) or any(k in candidate_text.lower() for k in ["prova", "caderno", "questoes"]):
+            # FILTRAR EXCLUSIVAMENTE CARGOS DE TI (PROVAS OBJETIVAS REAIS)
+            if matches_cargo_keyword(candidate_text):
                 cargo_title = f"{contest_name} - {text}" if text else contest_name
                 results.append(
                     ScrapedExamMeta(
