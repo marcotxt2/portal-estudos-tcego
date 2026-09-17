@@ -79,6 +79,43 @@ def _is_edital_or_admin_doc(text: str) -> bool:
 # Fontes de sementes diretas e verificadas de CADERNOS DE PROVAS E QUESTOES da FCC
 SEED_EXAMS: list[ScrapedExamMeta] = []
 
+HISTORICAL_CONCURSOS: list[tuple[str, str]] = [
+    ("TCE GO 2025", "https://www.concursosfcc.com.br/concursos/tcego125/index.html"),
+    ("TCE AM 2021", "https://www.concursosfcc.com.br/concursos/tceam121/index.html"),
+    ("TCE PR 2023", "https://www.concursosfcc.com.br/concursos/tcepr123/index.html"),
+    ("TCE SP 2023", "https://www.concursosfcc.com.br/concursos/tcesp123/index.html"),
+    ("TCE MG 2023", "https://www.concursosfcc.com.br/concursos/tcemg123/index.html"),
+    ("SEFAZ SC 2026", "https://www.concursosfcc.com.br/concursos/sefsc126/index.html"),
+    ("SEFAZ SP 2023", "https://www.concursosfcc.com.br/concursos/sefazsp123/index.html"),
+    ("SEFAZ PE 2022", "https://www.concursosfcc.com.br/concursos/sefazpe122/index.html"),
+    ("SEFAZ AM 2022", "https://www.concursosfcc.com.br/concursos/sefazam122/index.html"),
+    ("SEFAZ BA 2022", "https://www.concursosfcc.com.br/concursos/sefazba122/index.html"),
+    ("TRT 1R 2024", "https://www.concursosfcc.com.br/concursos/trt1r124/index.html"),
+    ("TRT 2R 2024", "https://www.concursosfcc.com.br/concursos/trt2r124/index.html"),
+    ("TRT 3R 2023", "https://www.concursosfcc.com.br/concursos/trt3r123/index.html"),
+    ("TRT 4R 2024", "https://www.concursosfcc.com.br/concursos/trt4r124/index.html"),
+    ("TRT 5R 2023", "https://www.concursosfcc.com.br/concursos/trt5r123/index.html"),
+    ("TRT 6R 2024", "https://www.concursosfcc.com.br/concursos/trt6r124/index.html"),
+    ("TRT 7R 2024", "https://www.concursosfcc.com.br/concursos/trt7r124/index.html"),
+    ("TRT 8R 2023", "https://www.concursosfcc.com.br/concursos/trt8r123/index.html"),
+    ("TRT 9R 2023", "https://www.concursosfcc.com.br/concursos/trt9r123/index.html"),
+    ("TRT 10R 2024", "https://www.concursosfcc.com.br/concursos/trt10r124/index.html"),
+    ("TRT 11R 2023", "https://www.concursosfcc.com.br/concursos/trt11r123/index.html"),
+    ("TRT 12R 2023", "https://www.concursosfcc.com.br/concursos/trt12r123/index.html"),
+    ("TRT 14R 2024", "https://www.concursosfcc.com.br/concursos/trt14r124/index.html"),
+    ("TRT 15R 2023", "https://www.concursosfcc.com.br/concursos/trt15123/index.html"),
+    ("TRT 18R 2023", "https://www.concursosfcc.com.br/concursos/trt18123/index.html"),
+    ("TRT 20R 2024", "https://www.concursosfcc.com.br/concursos/trt20124/index.html"),
+    ("ALE RR 2025", "https://www.concursosfcc.com.br/concursos/alerr125/index.html"),
+    ("MPE AL 2025", "https://www.concursosfcc.com.br/concursos/mpeal125/index.html"),
+    ("MPE AM 2021", "https://www.concursosfcc.com.br/concursos/mpeam131/index.html"),
+    ("MPE PB 2023", "https://www.concursosfcc.com.br/concursos/mpepb123/index.html"),
+    ("MPE SE 2023", "https://www.concursosfcc.com.br/concursos/mpese123/index.html"),
+    ("TJ CE 2022", "https://www.concursosfcc.com.br/concursos/tjce122/index.html"),
+    ("TJ BA 2023", "https://www.concursosfcc.com.br/concursos/tjba123/index.html"),
+    ("TJ MS 2024", "https://www.concursosfcc.com.br/concursos/tjms124/index.html"),
+]
+
 
 def _extract_contest_links_from_portal(html: str) -> list[tuple[str, str]]:
     """Extrai (nome_concurso, url_concurso) do portal oficial da FCC."""
@@ -149,41 +186,49 @@ def _extract_pdfs_from_contest_page(contest_name: str, contest_url: str, html: s
     return results
 
 
-def discover_exam_urls(max_pages: int = 10) -> list[ScrapedExamMeta]:
+def discover_exam_urls(max_pages: int = 15) -> list[ScrapedExamMeta]:
     """
-    Descobre provas e editais da FCC navegando no portal oficial concursosfcc.com.br.
-    Combina com a lista de sementes diretas para garantir ingestao continua.
+    Descobre provas e editais da FCC navegando no portal oficial concursosfcc.com.br
+    e verificando a lista estendida de concursos historicos.
     """
     all_exams: list[ScrapedExamMeta] = list(SEED_EXAMS)
     seen_urls: set[str] = {e.url for e in SEED_EXAMS}
 
+    # 1. Concursos do portal principal
+    contests_to_scan: list[tuple[str, str]] = []
     try:
         logger.info(f"[fcc_scraper] Buscando portal oficial da FCC: {FCC_MAIN_URL}")
         resp = requests.get(FCC_MAIN_URL, headers=HEADERS, timeout=30)
-        resp.raise_for_status()
-
-        contests = _extract_contest_links_from_portal(resp.text)
-        logger.info(f"[fcc_scraper] Encontrados {len(contests)} concursos no portal FCC.")
-
-        for contest_name, contest_url in contests[:max_pages]:
-            try:
-                time.sleep(RATE_LIMIT_SECONDS)
-                c_resp = requests.get(contest_url, headers=HEADERS, timeout=30)
-                if c_resp.status_code != 200:
-                    continue
-
-                pdf_metas = _extract_pdfs_from_contest_page(contest_name, contest_url, c_resp.text)
-                for meta in pdf_metas:
-                    if meta.url not in seen_urls:
-                        seen_urls.add(meta.url)
-                        all_exams.append(meta)
-
-            except Exception as e:
-                logger.warning(f"[fcc_scraper] Erro ao raspar concurso {contest_url}: {e}")
-                continue
-
+        if resp.status_code == 200:
+            portal_contests = _extract_contest_links_from_portal(resp.text)
+            contests_to_scan.extend(portal_contests)
+            logger.info(f"[fcc_scraper] Encontrados {len(portal_contests)} concursos no portal principal FCC.")
     except Exception as e:
         logger.error(f"[fcc_scraper] Erro ao acessar portal principal da FCC: {e}")
+
+    # 2. Adicionar concursos historicos para ter um pool gigante de provas
+    existing_urls = {c[1] for c in contests_to_scan}
+    for h_name, h_url in HISTORICAL_CONCURSOS:
+        if h_url not in existing_urls:
+            contests_to_scan.append((h_name, h_url))
+
+    # 3. Varrer cada pagina de concurso ate max_pages
+    for contest_name, contest_url in contests_to_scan[:max_pages]:
+        try:
+            time.sleep(RATE_LIMIT_SECONDS)
+            c_resp = requests.get(contest_url, headers=HEADERS, timeout=30)
+            if c_resp.status_code != 200:
+                continue
+
+            pdf_metas = _extract_pdfs_from_contest_page(contest_name, contest_url, c_resp.text)
+            for meta in pdf_metas:
+                if meta.url not in seen_urls:
+                    seen_urls.add(meta.url)
+                    all_exams.append(meta)
+
+        except Exception as e:
+            logger.warning(f"[fcc_scraper] Erro ao raspar concurso {contest_url}: {e}")
+            continue
 
     logger.info(f"[fcc_scraper] Total de provas/editais FCC encontrados: {len(all_exams)}")
     return all_exams

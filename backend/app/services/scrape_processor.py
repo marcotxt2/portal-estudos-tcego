@@ -25,8 +25,10 @@ from app.services.fcc_scraper import discover_exam_urls, download_exam_pdf, Scra
 logger = logging.getLogger("scrape_processor")
 
 
-def _is_already_processed(source_url: str, db: Session) -> bool:
+def _is_already_processed(source_url: str, db: Session, force_reprocess: bool = False) -> bool:
     """Verifica se a URL ja foi processada com sucesso."""
+    if force_reprocess:
+        return False
     return db.query(ScrapedExam).filter(
         ScrapedExam.source_url == source_url,
         ScrapedExam.status == "success"
