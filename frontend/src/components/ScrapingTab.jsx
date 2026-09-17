@@ -39,11 +39,11 @@ const ScrapingTab = () => {
     };
   }, []);
 
-  const handleTriggerNow = async () => {
+  const handleTriggerNow = async (force = false) => {
     try {
       setTriggering(true);
-      setStatusMessage('Iniciando varredura manual de provas FCC...');
-      const res = await triggerScraping(2);
+      setStatusMessage(force ? 'Forçando reprocessamento de provas...' : 'Iniciando varredura manual de provas FCC...');
+      const res = await triggerScraping(2, force);
       setStatusMessage(res.message || 'Scraping iniciado em segundo plano!');
       await loadData();
     } catch (err) {
@@ -156,7 +156,19 @@ const ScrapingTab = () => {
           )}
 
           <button
-            onClick={handleTriggerNow}
+            onClick={() => handleTriggerNow(true)}
+            disabled={triggering || isCurrentlyProcessing || actionLoading}
+            className="px-4 py-2.5 rounded-lg text-xs font-semibold text-amber-300 bg-amber-950/60 border border-amber-500/40 hover:bg-amber-900/60 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow"
+            title="Força o reprocessamento das provas existentes caso queira atualizar/re-extrair questões"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Forçar Re-scraping</span>
+          </button>
+
+          <button
+            onClick={() => handleTriggerNow(false)}
             disabled={triggering || isCurrentlyProcessing || actionLoading}
             className="px-5 py-2.5 rounded-lg text-xs font-semibold text-white transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2 shadow"
             style={{ backgroundColor: 'var(--color-primary)' }}

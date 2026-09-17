@@ -174,15 +174,13 @@ def process_scraped_exam(meta: ScrapedExamMeta, pdf_path: str, db: Session) -> i
     return total_inserted
 
 
-def run_daily_scrape(max_exams: int = 2, max_pages: int = 10) -> dict:
+def run_daily_scrape(max_exams: int = 2, max_pages: int = 10, force_reprocess: bool = False) -> dict:
     """
     Pipeline completo de scraping diario:
-    1. Descobre URLs de provas TI no PCI Concursos
-    2. Filtra as ja processadas
+    1. Descobre URLs de provas TI no portal FCC
+    2. Filtra as ja processadas (a menos que force_reprocess=True)
     3. Baixa e processa ate max_exams provas novas
     4. Registra resultado
-
-    Retorna dict com resultado da operacao.
     """
     start_time = time.time()
     db: Session = SessionLocal()
@@ -210,7 +208,7 @@ def run_daily_scrape(max_exams: int = 2, max_pages: int = 10) -> dict:
         # 2. Filtrar ja processadas
         new_exams = []
         for exam_meta in all_exams:
-            if not _is_already_processed(exam_meta.url, db):
+            if not _is_already_processed(exam_meta.url, db, force_reprocess=force_reprocess):
                 new_exams.append(exam_meta)
 
         logger.info(f"[scrape_processor] {len(new_exams)} provas novas (nao processadas).")

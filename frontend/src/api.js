@@ -199,8 +199,8 @@ export const discardPendingQuestion = async (id) => {
 
 // --- Scraping / Geracao Automatica ---
 
-export const triggerScraping = async (maxExams = 2) => {
-  const res = await fetchWithAuth(`${API_URL}/generation/trigger?max_exams=${maxExams}`, {
+export const triggerScraping = async (maxExams = 2, force = false) => {
+  const res = await fetchWithAuth(`${API_URL}/generation/trigger?max_exams=${maxExams}&force=${force}`, {
     method: 'POST',
   });
   if (!res.ok) throw new Error('Falha ao disparar scraping');

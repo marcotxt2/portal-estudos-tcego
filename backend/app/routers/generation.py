@@ -21,6 +21,7 @@ router = APIRouter(prefix="/generation", tags=["Generation"])
 def trigger_scraping(
     background_tasks: BackgroundTasks,
     max_exams: int = None,
+    force: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -28,11 +29,12 @@ def trigger_scraping(
     from app.services.scrape_processor import run_daily_scrape
 
     count = max_exams or int(os.getenv("DAILY_SCRAPE_MAX_EXAMS", "2"))
-    background_tasks.add_task(run_daily_scrape, max_exams=count)
+    background_tasks.add_task(run_daily_scrape, max_exams=count, force_reprocess=force)
 
     return {
-        "message": f"Scraping iniciado em background (max {count} provas).",
+        "message": f"Scraping iniciado em background (max {count} provas, force={force}).",
         "max_exams": count,
+        "force": force,
     }
 
 
