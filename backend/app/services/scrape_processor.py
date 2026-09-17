@@ -191,6 +191,17 @@ def run_daily_scrape(max_exams: int = 2, max_pages: int = 10) -> dict:
     exams_processed = []
     errors = []
 
+    # Registrar log inicial com status 'processing' para feedback imediato na UI
+    current_log = GenerationLog(
+        questions_generated=0,
+        topics_covered=[],
+        status="processing",
+        error_message=None,
+        duration_seconds=0.0,
+    )
+    db.add(current_log)
+    db.commit()
+
     try:
         # 1. Descobrir provas disponiveis
         all_exams = discover_exam_urls(max_pages=max_pages)
@@ -206,14 +217,9 @@ def run_daily_scrape(max_exams: int = 2, max_pages: int = 10) -> dict:
 
         if not new_exams:
             duration = time.time() - start_time
-            log = GenerationLog(
-                questions_generated=0,
-                topics_covered=[],
-                status="success",
-                error_message="Nenhuma prova nova encontrada.",
-                duration_seconds=round(duration, 2),
-            )
-            db.add(log)
+            current_log.status = "success"
+            current_log.error_message = "Nenhuma prova nova encontrada."
+            current_log.duration_seconds = round(duration, 2)
             db.commit()
             return {
                 "status": "success",
@@ -280,18 +286,15 @@ def run_daily_scrape(max_exams: int = 2, max_pages: int = 10) -> dict:
                 db.commit()
                 errors.append(f"{exam_meta.cargo}: {str(e)[:200]}")
 
-        # 4. Registrar log
+        # 4. Atualizar log final
         duration = time.time() - start_time
         status = "success" if not errors else ("partial" if total_questions > 0 else "error")
 
-        log = GenerationLog(
-            questions_generated=total_questions,
-            topics_covered=exams_processed,
-            status=status,
-            error_message="\n".join(errors)[:1000] if errors else None,
-            duration_seconds=round(duration, 2),
-        )
-        db.add(log)
+        current_log.questions_generated = total_questions
+        current_log.topics_covered = exams_processed
+        current_log.status = status
+        current_log.error_message = "\n".join(errors)[:1000] if errors else None
+        current_log.duration_seconds = round(duration, 2)
         db.commit()
 
         result = {
@@ -311,14 +314,11 @@ def run_daily_scrape(max_exams: int = 2, max_pages: int = 10) -> dict:
         logger.error(f"[scrape_processor] Erro geral: {error_detail}")
 
         try:
-            log = GenerationLog(
-                questions_generated=total_questions,
-                topics_covered=exams_processed,
-                status="error",
-                error_message=str(e)[:1000],
-                duration_seconds=round(duration, 2),
-            )
-            db.add(log)
+            current_log.questions_generated = total_questions
+            current_log.topics_covered = exams_processed
+            current_log.status = "error"
+            current_log.error_message = str(e)[:1000]
+            current_log.duration_seconds = round(duration, 2)
             db.commit()
         except Exception:
             db.rollback()
