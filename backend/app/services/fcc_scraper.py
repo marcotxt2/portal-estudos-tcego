@@ -37,33 +37,31 @@ class ScrapedExamMeta:
     orgao: str        # Orgao (ex: TCE-GO, TRT-1, MPE-AL)
 
 
-# Fontes de sementes diretas e verificadas da FCC para alimentacao imediata e continua
-SEED_EXAMS: list[ScrapedExamMeta] = [
-    ScrapedExamMeta(
-        url="https://www.concursosfcc.com.br/concursos/alerr125/edital_todos_os_cargos__01_04_26_fcc_sem_senha.pdf",
-        cargo="Analista de Sistemas - Assembleia Legislativa de Roraima",
-        ano=2025,
-        orgao="ALE-RR",
-    ),
-    ScrapedExamMeta(
-        url="https://www.concursosfcc.com.br/concursos/mpeal125/edital_01-2025_-_22_01_26__2_publicar.pdf",
-        cargo="Analista de TI - Ministerio Publico de Alagoas",
-        ano=2025,
-        orgao="MPE-AL",
-    ),
-    ScrapedExamMeta(
-        url="https://www.concursosfcc.com.br/concursos/tcego125/edital_de_abertura_versaex771_o_15_09_2026_-_consolidado_com_retificacoes__1_.pdf",
-        cargo="Analista de Controle Externo - TI - TCE GO",
-        ano=2025,
-        orgao="TCE-GO",
-    ),
-    ScrapedExamMeta(
-        url="https://www.concursosfcc.com.br/concursos/sefsc126/sefsc126_edital_de_abertura_final_publicar.pdf",
-        cargo="Auditor de TI e Sistemas - SEFAZ SC",
-        ano=2026,
-        orgao="SEFAZ-SC",
-    ),
+# Palavras-chave de documentos administrativos/editais que DEVEM ser ignorados
+EXCLUDED_KEYWORDS = [
+    "edital",
+    "comunicado",
+    "isencao",
+    "retificacao",
+    "local_de_prova",
+    "locais_de_prova",
+    "respostas_impugnac",
+    "resultado_da_analise",
+    "gabaritos_definitivos",
+    "comprovante",
+    "inscricoes",
+    "deferidas",
 ]
+
+
+def _is_edital_or_admin_doc(text: str) -> bool:
+    """Verifica se o texto se refere a um edital ou documento administrativo."""
+    text_lower = text.lower()
+    return any(keyword in text_lower for keyword in EXCLUDED_KEYWORDS)
+
+
+# Fontes de sementes diretas e verificadas de CADERNOS DE PROVAS E QUESTOES da FCC
+SEED_EXAMS: list[ScrapedExamMeta] = []
 
 
 def _extract_contest_links_from_portal(html: str) -> list[tuple[str, str]]:
@@ -84,7 +82,7 @@ def _extract_contest_links_from_portal(html: str) -> list[tuple[str, str]]:
 
 
 def _extract_pdfs_from_contest_page(contest_name: str, contest_url: str, html: str) -> list[ScrapedExamMeta]:
-    """Extrai links de arquivos PDF de uma pagina de concurso especifico da FCC."""
+    """Extrai links de arquivos PDF DE PROVAS E QUESTOES (excluindo editais) da FCC."""
     soup = BeautifulSoup(html, "html.parser")
     results = []
 
@@ -113,9 +111,15 @@ def _extract_pdfs_from_contest_page(contest_name: str, contest_url: str, html: s
                 pdf_url = href
 
         if pdf_url:
-            # Filtrar apenas documentos relevantes ao edital de TI/Analista ou editais completos
             candidate_text = f"{contest_name} {text} {pdf_url}"
-            if matches_cargo_keyword(candidate_text) or "edital" in candidate_text.lower() or "prova" in candidate_text.lower():
+
+            # EXCLUIR ESTRITAMENTE EDITAIS E DOCUMENTOS ADMINISTRATIVOS
+            if _is_edital_or_admin_doc(candidate_text):
+                logger.debug(f"[fcc_scraper] Ignorando edital/documento administrativo: {pdf_url}")
+                continue
+
+            # FILTRAR APENAS CADERNOS DE PROVA DE TI OU QUESTOES
+            if matches_cargo_keyword(candidate_text) or any(k in candidate_text.lower() for k in ["prova", "caderno", "questoes"]):
                 cargo_title = f"{contest_name} - {text}" if text else contest_name
                 results.append(
                     ScrapedExamMeta(
