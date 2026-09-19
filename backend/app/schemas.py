@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Dict, Optional, Any
+from typing import Dict, List, Optional, Any
 from datetime import datetime
 
 class ContentResponse(BaseModel):
@@ -143,3 +143,30 @@ class GenerationStatsResponse(BaseModel):
     last_run_count: int = 0
     scheduler_active: bool = False
     next_scheduled_run: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Bulk upload (fluxo .har -> agentes -> VPS)
+# @spec:AC-084, AC-085
+# ---------------------------------------------------------------------------
+
+class BulkQuestionItem(BaseModel):
+    enunciado: str
+    alternativas: Dict[str, str]
+    correct_option: Optional[str] = None
+    is_ai_generated: bool = True
+    explanation: Optional[str] = None
+    disciplina: str
+    topico: str
+    banca: str = "FCC"
+    orgao: Optional[str] = None
+    ano: Optional[int] = None
+    cargo: Optional[str] = None
+    source_url: Optional[str] = None
+
+
+class BulkUploadResponse(BaseModel):
+    total: int
+    inserted: int
+    skipped: int
+    errors: List[Dict[str, Any]]
