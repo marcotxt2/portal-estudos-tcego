@@ -1,4 +1,4 @@
-﻿"""
+"""
 upload_to_vps.py - Etapa 4 do fluxo resolucao-questoes-ia
 Le questions.json completo e envia para a VPS via POST /api/questions/bulk/
 @spec:AC-084
@@ -57,13 +57,36 @@ def upload(questions_path: str = QUESTIONS_PATH) -> dict:
     with open(questions_path, encoding="utf-8") as f:
         questions = json.load(f)
 
-    print(f"Questoes carregadas: {len(questions)}")
+    total_raw = len(questions)
+    # Filtrar questoes descartadas (fora do edital)
+    questions = [q for q in questions if not q.get("discard", False)]
+    discarded = total_raw - len(questions)
+    print(f"Questoes carregadas: {total_raw} | Descartadas (fora do edital): {discarded} | A enviar: {len(questions)}")
+
+    # Remapear para o schema do endpoint /bulk/
+    # usar materia_canonica/topico_canonico se disponiveis, senao disciplina/topico
+    payload_items = []
+    for q in questions:
+        item = {
+            "enunciado": q.get("enunciado", ""),
+            "alternativas": q.get("alternativas", {}),
+            "correct_option": q.get("correct_option"),
+            "is_ai_generated": q.get("is_ai_generated", True),
+            "explanation": q.get("explanation"),
+            "disciplina": q.get("materia_canonica") or q.get("disciplina", ""),
+            "topico": q.get("topico_canonico") or q.get("topico", ""),
+            "banca": q.get("banca", "FCC"),
+            "orgao": q.get("orgao"),
+            "ano": q.get("ano"),
+            "cargo": q.get("cargo"),
+            "source_url": q.get("source_url"),
+        }
+        payload_items.append(item)
 
     # Obter token
     token = get_token()
 
-    # Montar payload — renomear campos do questions.json para o schema da API
-    payload = json.dumps(questions).encode("utf-8")
+    payload = json.dumps(payload_items).encode("utf-8")
 
     url = f"{VPS_API_URL}/api/questions/bulk/"
     req = urllib.request.Request(

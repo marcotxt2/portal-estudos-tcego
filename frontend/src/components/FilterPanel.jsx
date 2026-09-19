@@ -37,7 +37,7 @@ const FilterPanel = ({
   const getSourceTypeFilter = () => {
     const types = [];
     if (apenasScraper) types.push('scraped');
-    if (apenasProvasFCC) types.push('exam');
+    if (apenasProvasFCC) types.push('exam', 'qconcursos');
     return types.join(',');
   };
 

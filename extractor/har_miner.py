@@ -147,6 +147,10 @@ def parse_question_block(block: str) -> Optional[dict]:
         "correct_option": None,
         "is_ai_generated": True,
         "explanation": None,
+        # Campos preenchidos pelo agente de gabarito (etapa 2)
+        "materia_canonica": None,
+        "topico_canonico": None,
+        "discard": False,
         "disciplina": disciplina,
         "topico": topico,
         "banca": banca if banca else "FCC",
