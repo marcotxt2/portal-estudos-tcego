@@ -1,5 +1,14 @@
-﻿# Instrucoes para o Agente de Gabarito + Classificacao
+# Instrucoes para o Agente de Gabarito + Classificacao
 # @spec:AC-080, AC-081
+
+## Ferramentas a usar
+
+1. Use `view_file` para ler o `questions.json`.
+2. Processe TODAS as 400 questoes em memoria.
+3. Use `write_to_file` com `Overwrite=true` para salvar o arquivo completo atualizado.
+   NAO exiba o JSON no chat — salve direto no arquivo.
+
+---
 
 ## Objetivo
 

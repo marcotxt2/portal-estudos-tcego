@@ -1,5 +1,14 @@
-﻿# Instrucoes para o Agente de Justificativas
+# Instrucoes para o Agente de Justificativas
 # @spec:AC-082, AC-083
+
+## Ferramentas a usar
+
+1. Use `view_file` para ler o `questions.json`.
+2. Processe TODAS as questoes com `discard=false` e `explanation=null`.
+3. Use `write_to_file` com `Overwrite=true` para salvar o arquivo completo atualizado.
+   NAO exiba o JSON no chat — salve direto no arquivo.
+
+---
 
 ## Objetivo
 
