@@ -15,7 +15,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 QUESTIONS_PATH = os.path.join(os.path.dirname(__file__), "questions.json")
 VPS_API_URL = os.getenv("VPS_API_URL", "").rstrip("/")
 VPS_API_TOKEN = os.getenv("VPS_API_TOKEN", "")
-LOGIN_URL = os.getenv("VPS_LOGIN_URL", f"{VPS_API_URL}/api/auth/token")
+LOGIN_URL = os.getenv("VPS_LOGIN_URL", f"{VPS_API_URL}/api/auth/login")
 LOGIN_USERNAME = os.getenv("VPS_USERNAME", "")
 LOGIN_PASSWORD = os.getenv("VPS_PASSWORD", "")
 

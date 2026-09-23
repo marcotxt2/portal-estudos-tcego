@@ -8,3 +8,5 @@ venv/
 .spec/
 uploads/
 backend/uploads/
+*.har
+questions.json

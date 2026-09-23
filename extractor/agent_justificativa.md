@@ -16,27 +16,32 @@ Ler o arquivo `extractor/questions.json` (que ja deve ter `correct_option` preen
 pela etapa anterior), gerar uma explicacao tecnica para cada questao sem `explanation`,
 e salvar o arquivo atualizado em disco.
 
-## Regras
+## Regras Rigorosas (Anti-Preguica e Qualidade)
 
-1. Para cada questao com `explanation == null` ou `explanation == ""`:
-   - Ler `enunciado`, `alternativas` e `correct_option`.
-   - Escrever uma explicacao tecnica de 1 a 3 paragrafos que:
-     a. Justifique por que a alternativa em `correct_option` esta correta.
-     b. Aponte de forma concisa por que as demais alternativas estao erradas
-        (pode ser em um unico paragrafo discutindo as incorretas em conjunto).
-   - Preencher o campo `explanation` com o texto gerado.
+1. **Processamento em Lotes:**
+   Como sao muitas questoes para a memoria de atencao, processe o arquivo em lotes de 50 questoes por vez. Somente apos justificar 50 questoes com alta qualidade, salve no arquivo e puxe as proximas 50. Nao tenha pressa, o objetivo e qualidade.
 
-2. NAO reprocessar questoes que ja possuem `explanation` preenchida e nao vazia.
+2. **Geracao da Justificativa (explanation):**
+   Para cada questao com `discard == false` E `explanation == null`:
+   - Leia o `enunciado`, as `alternativas` e o `correct_option`.
+   - Escreva uma explicacao tecnica em Markdown (1 a 3 paragrafos) que:
+     a) Justifique claramente o motivo tecnico da alternativa em `correct_option` estar correta.
+     b) Aponte de forma concisa o erro principal das outras alternativas (ex: "As demais estao incorretas porque...").
+   - A explicacao deve parecer um gabarito comentado de cursinho preparatorio (explicativo e didatico).
 
-3. NAO alterar nenhum outro campo (`correct_option`, `is_ai_generated`, etc).
+3. **Restricoes Criticas:**
+   - NAO invente justificativas vazias ou genéricas ("Esta correta porque e a verdadeira").
+   - NAO crie scripts Python para fazer isso (a tarefa deve ser feita pela sua propria inteligencia analitica).
+   - NAO altere os campos `correct_option`, `discard` ou qualquer outro.
+   - Pule questoes que possuem `discard == true` (nao gere justificativa para elas).
 
-4. Ao finalizar todas as questoes, salvar o `questions.json` atualizado em disco.
+4. **Persistencia:**
+   Ao finalizar TODAS as questoes validas, salve o `questions.json` usando `write_to_file`.
 
-5. Ao final, exibir o relatorio:
-   - Total de questoes no arquivo
+5. Ao final de todos os lotes, exiba o relatorio:
+   - Total de questoes validas no arquivo
    - Total com explanation gerada agora
-   - Total ignorados (ja tinham explanation)
-   - Total com erro (se algum)
+   - Total ignoradas (discard=true ou explanation ja existia)
 
 ## Caminho do arquivo
 

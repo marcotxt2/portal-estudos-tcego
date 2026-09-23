@@ -271,7 +271,7 @@ const ScrapingTab = () => {
         </div>
 
         {scrapedExams.length === 0 ? (
-          <p className="text-xs text-gray-500 py-4">Nenhuma prova coletada ainda. Clique em "Puxar Questões Agora".</p>
+          <p className="text-xs text-gray-500 py-4">Nenhuma prova coletada ainda. Clique em &quot;Puxar Questões Agora&quot;.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
